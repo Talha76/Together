@@ -195,25 +195,55 @@ export const decryptFile = (encryptedData, sharedSecret) => {
 };
 
 // Generate QR code data with key exchange info
-export const generateQRData = (publicKey) => {
-  const qrData = {
+export function generateQRData(publicKey, exchangeId = null) {
+  const data = {
     v: 1, // version
-    pk: publicKey, // public key
-    t: Date.now(), // timestamp
+    pk: publicKey,
   };
-  return JSON.stringify(qrData);
-};
+  
+  if (exchangeId) {
+    data.exchangeId = exchangeId;
+  }
+  
+  return JSON.stringify(data);
+}
 
 // Parse QR code data
-export const parseQRData = (qrString) => {
+export function parseQRData(qrDataString) {
   try {
-    const data = JSON.parse(qrString);
-    if (!data.pk) {
-      throw new Error('Invalid QR code: missing public key');
+    const data = JSON.parse(qrDataString);
+    if (!data.pk || !data.v) {
+      return null;
     }
-    return data;
-  } catch (error) {
-    console.error('QR parse error:', error);
+    return {
+      publicKey: data.pk,
+      pk: data.pk,
+      version: data.v,
+      exchangeId: data.exchangeId || null
+    };
+  } catch {
     return null;
   }
-};
+}
+
+// Generate QR with just exchangeId (secure!)
+export function generateQRDataV2(exchangeId) {
+  return JSON.stringify({
+    v: 2,
+    eid: exchangeId, // Only exchange ID, not keys
+    ts: Date.now()
+  });
+}
+
+// Parse QR v2
+export function parseQRDataV2(qrString) {
+  try {
+    const data = JSON.parse(qrString);
+    if (data.v === 2 && data.eid) {
+      return { success: true, exchangeId: data.eid };
+    }
+    return { success: false };
+  } catch {
+    return { success: false };
+  }
+}

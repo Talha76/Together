@@ -1,4 +1,4 @@
-import { db } from './config';
+import { db } from './firebase';  // ✅ Import from firebase.js
 import {
   collection,
   addDoc,
@@ -10,10 +10,23 @@ import {
 } from 'firebase/firestore';
 
 // Generate unique chat room ID from encryption key
-// Both partners will have the same key = same room ID
 export function getChatRoomId(encryptionKey) {
-  // Use first 32 chars of base64 key as room ID
-  const keyB64 = btoa(String.fromCharCode(...encryptionKey));
+  // Handle different input types
+  let keyBytes;
+  
+  if (typeof encryptionKey === 'string') {
+    // If it's base64 string, decode it
+    keyBytes = Uint8Array.from(atob(encryptionKey), c => c.charCodeAt(0));
+  } else if (encryptionKey instanceof Uint8Array) {
+    keyBytes = encryptionKey;
+  } else if (typeof encryptionKey === 'object') {
+    // If it's an object with numeric keys (from JSON.parse)
+    keyBytes = new Uint8Array(Object.values(encryptionKey));
+  } else {
+    throw new Error('Invalid encryption key format');
+  }
+  
+  const keyB64 = btoa(String.fromCharCode(...keyBytes));
   return keyB64.substring(0, 32).replace(/[^a-zA-Z0-9]/g, '');
 }
 
@@ -21,14 +34,18 @@ export function getChatRoomId(encryptionKey) {
 export async function sendMessage(chatRoomId, encryptedMessage, encryptedFile = null) {
   try {
     const messageData = {
-      content: encryptedMessage,
+      content: {
+        ciphertext: encryptedMessage.ciphertext,
+        nonce: encryptedMessage.nonce
+      },
       timestamp: serverTimestamp(),
-      createdAt: Date.now(), // Fallback for ordering
+      createdAt: Date.now(),
     };
 
     if (encryptedFile) {
       messageData.file = {
         data: encryptedFile.data,
+        nonce: encryptedFile.nonce,
         name: encryptedFile.name,
         type: encryptedFile.type,
         size: encryptedFile.size,
@@ -67,5 +84,5 @@ export function subscribeToMessages(chatRoomId, onMessagesUpdate) {
     }
   );
 
-  return unsubscribe; // Call this to stop listening
+  return unsubscribe;
 }
