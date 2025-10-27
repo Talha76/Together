@@ -2,12 +2,149 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    
+    <!-- Primary Meta Tags -->
+    <title>Together - Private Chat for Couples</title>
+    <meta name="title" content="Together - Private Chat for Couples" />
+    <meta name="description" content="End-to-end encrypted messaging for couples. Military-grade encryption, photos, videos, and more." />
+    
+    <!-- Mobile Optimization - CRITICAL FOR REMOVING ADDRESS BAR -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- PWA Configuration - Makes it feel like a native app -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Together" />
+    
+    <!-- Remove Safari UI -->
+    <meta name="apple-touch-fullscreen" content="yes" />
+    
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#ec4899" />
+    <meta name="msapplication-TileColor" content="#ec4899" />
+    <meta name="msapplication-navbutton-color" content="#ec4899" />
+    
+    <!-- Prevent unwanted features -->
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="format-detection" content="date=no" />
+    <meta name="format-detection" content="address=no" />
+    <meta name="format-detection" content="email=no" />
+    
+    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>together-chat</title>
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Splash Screens for iOS (optional but recommended) -->
+    <link rel="apple-touch-startup-image" href="/splash-2048x2732.png" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)" />
+    <link rel="apple-touch-startup-image" href="/splash-1668x2388.png" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)" />
+    <link rel="apple-touch-startup-image" href="/splash-1536x2048.png" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)" />
+    <link rel="apple-touch-startup-image" href="/splash-1284x2778.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="/splash-1170x2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="/splash-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" />
+    <link rel="apple-touch-startup-image" href="/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" />
+    <link rel="apple-touch-startup-image" href="/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" />
+    
+    <!-- Preload -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    
+    <!-- Prevent Text Size Adjustment -->
+    <style>
+      html, body {
+        -webkit-text-size-adjust: 100%;
+        -moz-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+        
+        /* Prevent overscroll bounce effect */
+        overscroll-behavior: none;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      /* Hide scrollbars */
+      * {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      
+      *::-webkit-scrollbar {
+        display: none;
+      }
+      
+      /* PWA safe areas for notched devices */
+      body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+      }
+      
+      /* Loading screen */
+      #loading-screen {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(to bottom right, #fce7f3, #faf5ff, #fce7f3);
+        z-index: 9999;
+        transition: opacity 0.3s ease-out;
+      }
+      
+      #loading-screen.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      .loader {
+        width: 48px;
+        height: 48px;
+        border: 4px solid #ec4899;
+        border-bottom-color: transparent;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      
+      /* Prevent pull-to-refresh on mobile */
+      body {
+        overscroll-behavior-y: contain;
+      }
+    </style>
   </head>
   <body>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+      <div class="loader"></div>
+    </div>
+    
+    <!-- App Root -->
     <div id="root"></div>
+    
+    <!-- Script -->
     <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Hide loading screen when app loads -->
+    <script>
+      window.addEventListener('load', () => {
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+          setTimeout(() => {
+            loadingScreen.classList.add('hidden');
+            setTimeout(() => loadingScreen.remove(), 300);
+          }, 500);
+        }
+      });
+    </script>
   </body>
 </html>

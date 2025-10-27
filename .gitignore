@@ -24,3 +24,13 @@ dist-ssr
 *.sw?
 
 .env
+
+# Mobile App
+android/release-key.keystore
+android/gradle.properties
+android/local.properties
+android/.gradle
+android/app/build
+ios/App/Pods
+ios/App/*.xcworkspace
+.DS_Store
