@@ -6,7 +6,6 @@
 
 - **Screen Components**: `src/components/*Screen.jsx`
 - **Chat Components**: `src/components/Chat*.jsx`
-- **Utility Components**: `src/components/QR*.jsx`
 - **Custom Hooks**: `src/hooks/*.js`
 
 ### Adding a New Feature
@@ -52,7 +51,6 @@ import NewScreen from "./components/NewScreen";
 if (step === "new-screen") {
   return (
     <>
-      {renderQRScannerModal()}
       <NewScreen
         onNext={() => setStep("next")}
         onBack={() => setStep("previous")}
@@ -105,39 +103,6 @@ function MyComponent() {
 ```
 
 ## State Flow
-
-### User Flow Example: QR Setup
-
-```txt
-1. User clicks "Get Started"
-   └─► App sets step='choose-method'
-
-2. User clicks "QR Code"
-   └─► App sets step='qr-setup'
-   └─► QRSetupScreen renders
-
-3. User clicks "Generate QR Code"
-   └─► QRSetupScreen calls onGenerateQR()
-   └─► App.handleSetupWithQRGenerate()
-   └─► useEncryption.generateQRKeys()
-   └─► App sets step='qr-waiting'
-
-4. Partner scans QR
-   └─► User clicks "Scan Partner's QR"
-   └─► App sets showQRScanner=true
-   └─► QRScanner modal opens
-
-5. User scans partner's QR
-   └─► QRScanner calls onScan(data)
-   └─► App.handleQRScanSuccess(data)
-   └─► useEncryption generates sharedSecret
-   └─► App sets step='qr-show-mine'
-
-6. Partner scans user's QR
-   └─► User clicks "Done"
-   └─► App sets step='chat'
-   └─► ChatScreen renders
-```
 
 ## Testing Guide
 
@@ -236,10 +201,6 @@ localStorage.getItem("togetherSharedSecret");
 ```
 
 ## Common Issues
-
-### Issue: QR Scanner not opening
-
-**Solution**: Check `showQRScanner` state and make sure modal is rendered
 
 ### Issue: Messages not encrypting
 

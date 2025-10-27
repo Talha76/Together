@@ -7,7 +7,6 @@ export function useEncryption() {
   const [theirPublicKey, setTheirPublicKey] = useState(null);
   const [sharedSecret, setSharedSecret] = useState(null);
   const [keyExchangeMethod, setKeyExchangeMethod] = useState(null);
-  const [qrCodeData, setQrCodeData] = useState(null);
 
   // Load encryption state from localStorage on mount
   useEffect(() => {
@@ -70,7 +69,6 @@ export function useEncryption() {
     setTheirPublicKey(null);
     setSharedSecret(null);
     setKeyExchangeMethod(null);
-    setQrCodeData(null);
   };
 
   // Encrypt message
@@ -110,12 +108,10 @@ export function useEncryption() {
     theirPublicKey,
     sharedSecret,
     keyExchangeMethod,
-    qrCodeData,
     setMyKeys,
     setTheirPublicKey,
     setSharedSecret,
     setKeyExchangeMethod,
-    setQrCodeData,
     setupWithCode,
     saveEncryptionKeys,
     clearEncryptionData,

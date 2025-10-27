@@ -1,41 +1,49 @@
 {
   "name": "together-chat",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "build:prod": "NODE_ENV=production vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext js,jsx --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "analyze": "vite-bundle-visualizer"
   },
   "dependencies": {
-    "dotenv": "^17.2.3",
-    "firebase": "^12.4.0",
-    "lucide-react": "^0.548.0",
+    "firebase": "^10.13.0",
+    "lucide-react": "^0.263.1",
     "megajs": "^1.3.9",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.36.0",
-    "@types/react": "^19.1.16",
-    "@types/react-dom": "^19.1.9",
-    "@vitejs/plugin-react": "^5.0.4",
-    "autoprefixer": "^10.4.21",
-    "eslint": "^9.36.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.22",
-    "globals": "^16.4.0",
-    "postcss": "^8.5.6",
-    "tailwindcss": "3",
-    "vite": "^7.1.7",
-    "vite-plugin-pwa": "^1.1.0"
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "@vitest/ui": "^4.0.4",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.34.3",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.7",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.4",
+    "vite": "^7.1.12",
+    "vite-bundle-visualizer": "^1.2.1",
+    "vite-plugin-compression": "^0.5.1",
+    "vite-plugin-pwa": "^1.1.0",
+    "vitest": "^4.0.4",
+    "workbox-window": "^7.1.0"
   },
-  "trustedDependencies": [
-    "@firebase/util",
-    "protobufjs"
-  ]
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
 }
