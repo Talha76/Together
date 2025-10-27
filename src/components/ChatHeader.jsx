@@ -1,7 +1,7 @@
 // src/components/ChatHeader.jsx
-import { Heart, Shield } from 'lucide-react';
+import { Heart, Shield, Users } from 'lucide-react';
 
-export default function ChatHeader({ userName, encryptionStatus, onDisconnect }) {
+export default function ChatHeader({ userName, encryptionStatus, participantCount, onDisconnect }) {
   return (
     <div className="bg-white shadow-md">
       <div className="max-w-4xl mx-auto px-4 py-4">
@@ -13,8 +13,8 @@ export default function ChatHeader({ userName, encryptionStatus, onDisconnect })
               <p className="text-sm text-gray-500 flex items-center gap-2">
                 <Shield className="w-3 h-3 text-green-600" />
                 <span>{encryptionStatus}</span>
-                <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
-                <span>Local only</span>
+                <Users className="w-3 h-3 text-blue-600 ml-2" />
+                <span>{participantCount}/2 online</span>
               </p>
             </div>
           </div>

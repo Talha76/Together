@@ -6,6 +6,19 @@ import * as naclUtil from 'tweetnacl-util';
 const encodeBase64 = naclUtil.encodeBase64;
 const decodeBase64 = naclUtil.decodeBase64;
 
+// Utility: Convert Uint8Array to base64 (avoiding stack overflow)
+function uint8ArrayToBase64(uint8Array) {
+  const chunkSize = 8192;
+  const chunks = [];
+  
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.subarray(i, i + chunkSize);
+    chunks.push(String.fromCharCode.apply(null, chunk));
+  }
+  
+  return btoa(chunks.join(''));
+}
+
 // Generate a new key pair for asymmetric encryption
 export const generateKeyPair = () => {
   const keyPair = nacl.box.keyPair();
@@ -176,8 +189,8 @@ export function encryptFile(fileData, sharedSecret, onProgress) {
       const encrypted = nacl.secretbox(chunk, nonce, secretKey);
 
       encryptedChunks.push({
-        nonce: btoa(String.fromCharCode(...nonce)),
-        data: btoa(String.fromCharCode(...encrypted)),
+        nonce: uint8ArrayToBase64(nonce),
+        data: uint8ArrayToBase64(encrypted),
       });
 
       // Report progress
@@ -239,7 +252,7 @@ export function decryptFile(encryptedChunks, sharedSecret, onProgress) {
     }
 
     // Convert to base64
-    return btoa(String.fromCharCode(...combined));
+    return uint8ArrayToBase64(combined);
   } catch (error) {
     console.error('Decryption failed:', error);
     throw error;

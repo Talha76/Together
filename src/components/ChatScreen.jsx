@@ -6,6 +6,7 @@ import { MessageInput } from './MessageInput';
 export default function ChatScreen({ 
   userName,
   encryptionStatus,
+  participantCount,
   messages,
   onSendMessage, 
   onDownloadFile,
@@ -16,6 +17,7 @@ export default function ChatScreen({
       <ChatHeader 
         userName={userName} 
         encryptionStatus={encryptionStatus}
+        participantCount={participantCount}
         onDisconnect={onDisconnect} 
       />
       <MessageList messages={messages} onDownloadFile={onDownloadFile} />

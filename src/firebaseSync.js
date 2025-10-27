@@ -9,6 +9,19 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 
+// Utility: Convert Uint8Array to base64 (avoiding stack overflow)
+function uint8ArrayToBase64(uint8Array) {
+  const chunkSize = 8192;
+  const chunks = [];
+  
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.subarray(i, i + chunkSize);
+    chunks.push(String.fromCharCode.apply(null, chunk));
+  }
+  
+  return btoa(chunks.join(''));
+}
+
 // Generate unique chat room ID from encryption key
 export function getChatRoomId(encryptionKey) {
   // Handle different input types
@@ -26,7 +39,7 @@ export function getChatRoomId(encryptionKey) {
     throw new Error('Invalid encryption key format');
   }
   
-  const keyB64 = btoa(String.fromCharCode(...keyBytes));
+  const keyB64 = uint8ArrayToBase64(keyBytes);
   return keyB64.substring(0, 32).replace(/[^a-zA-Z0-9]/g, '');
 }
 

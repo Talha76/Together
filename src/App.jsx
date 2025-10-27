@@ -14,7 +14,7 @@ export default function TogetherChat() {
 
   // Use custom hooks
   const encryption = useEncryption();
-  const { messages, addMessage, downloadFile } = useMessages(
+  const { messages, addMessage, downloadFile, participantCount, roomError } = useMessages(
     encryption.sharedSecret,
     encryption.encryptMessage,
     encryption.decryptMessage
@@ -30,6 +30,14 @@ export default function TogetherChat() {
       setEncryptionStatus('🔒 E2E Encrypted');
     }
   }, [encryption.isEncrypted]);
+
+  // Handle room full error - kick user out immediately
+  useEffect(() => {
+    if (roomError && step === 'chat') {
+      alert(roomError + '\n\nYou will be disconnected.');
+      handleDisconnect();
+    }
+  }, [roomError, step]);
 
   // Setup with shared code
   const handleSetupWithCode = async () => {
@@ -57,13 +65,11 @@ export default function TogetherChat() {
 
   // Handle disconnect
   const handleDisconnect = () => {
-    if (confirm('Disconnect? Your encrypted messages will remain on this device.')) {
-      encryption.clearEncryptionData();
-      setStep('welcome');
-      setUserName('');
-      setSharedCode('');
-      setEncryptionStatus('Not encrypted');
-    }
+    encryption.clearEncryptionData();
+    setStep('welcome');
+    setUserName('');
+    setSharedCode('');
+    setEncryptionStatus('Not encrypted');
   };
 
   // Handle send message
@@ -101,11 +107,31 @@ export default function TogetherChat() {
     );
   }
 
+  // Don't render chat if there's a room error
+  if (roomError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-50 to-pink-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md text-center">
+          <div className="text-6xl mb-4">🚫</div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Room Full</h2>
+          <p className="text-gray-600 mb-6">{roomError}</p>
+          <button
+            onClick={handleDisconnect}
+            className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white py-3 rounded-xl font-semibold hover:from-pink-600 hover:to-purple-600 transition"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Chat Screen
   return (
     <ChatScreen
       userName={userName}
       encryptionStatus={encryptionStatus}
+      participantCount={participantCount}
       messages={messages}
       onSendMessage={handleSendMessage}
       onDownloadFile={handleDownloadFile}
