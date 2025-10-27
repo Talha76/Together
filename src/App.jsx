@@ -1,3 +1,4 @@
+// App.jsx
 import React, { useState, useEffect } from 'react';
 import WelcomeScreen from './components/WelcomeScreen';
 import CodeSetupScreen from './components/CodeSetupScreen';
@@ -13,11 +14,10 @@ export default function TogetherChat() {
 
   // Use custom hooks
   const encryption = useEncryption();
-  const { messages, addMessage } = useMessages(
+  const { messages, addMessage, downloadFile } = useMessages(
     encryption.sharedSecret,
     encryption.encryptMessage,
-    encryption.decryptMessage,
-    encryption.encryptFile
+    encryption.decryptMessage
   );
 
   // Load saved user data on mount
@@ -67,10 +67,19 @@ export default function TogetherChat() {
   };
 
   // Handle send message
-  const handleSendMessage = async (inputText, selectedFile) => {
-    const result = await addMessage(userName, inputText, selectedFile);
+  const handleSendMessage = async (inputText, selectedFile, onProgress) => {
+    const result = await addMessage(userName, inputText, selectedFile, onProgress);
     if (!result.success && result.error) {
       alert(result.error);
+    }
+  };
+
+  // Handle download file
+  const handleDownloadFile = async (fileMetadata, onProgress) => {
+    try {
+      await downloadFile(fileMetadata, onProgress);
+    } catch (error) {
+      alert('Failed to download file: ' + error.message);
     }
   };
 
@@ -97,12 +106,9 @@ export default function TogetherChat() {
     <ChatScreen
       userName={userName}
       encryptionStatus={encryptionStatus}
-      keyExchangeMethod={encryption.keyExchangeMethod}
       messages={messages}
-      sharedSecret={encryption.sharedSecret}
-      decryptMessage={encryption.decryptMessage}
-      decryptFile={encryption.decryptFile}
       onSendMessage={handleSendMessage}
+      onDownloadFile={handleDownloadFile}
       onDisconnect={handleDisconnect}
     />
   );

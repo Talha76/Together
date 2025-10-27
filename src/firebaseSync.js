@@ -31,13 +31,14 @@ export function getChatRoomId(encryptionKey) {
 }
 
 // Send encrypted message to Firestore
-export async function sendMessage(chatRoomId, encryptedMessage, encryptedFile = null) {
+export async function sendMessage(chatRoomId, encryptedMessage, encryptedFile = null, senderId = null) {
   try {
     const messageData = {
       content: {
         ciphertext: encryptedMessage.ciphertext,
         nonce: encryptedMessage.nonce
       },
+      senderId: senderId || 'unknown',
       timestamp: serverTimestamp(),
       createdAt: Date.now(),
     };
@@ -85,4 +86,41 @@ export function subscribeToMessages(chatRoomId, onMessagesUpdate) {
   );
 
   return unsubscribe;
+}
+
+// Send message with Mega.nz file link
+export async function sendMessageWithFile(
+  chatRoomId,
+  encryptedMessage,
+  fileMetadata,
+  senderId = null
+) {
+  try {
+    const messageData = {
+      content: {
+        ciphertext: encryptedMessage.ciphertext,
+        nonce: encryptedMessage.nonce,
+      },
+      senderId: senderId || 'unknown',
+      timestamp: serverTimestamp(),
+      createdAt: Date.now(),
+      type: fileMetadata ? 'file' : 'text',
+    };
+
+    if (fileMetadata) {
+      messageData.file = {
+        megaLink: fileMetadata.megaLink,
+        name: fileMetadata.name,
+        type: fileMetadata.type,
+        size: fileMetadata.size,
+        totalSize: fileMetadata.totalSize,
+      };
+    }
+
+    await addDoc(collection(db, 'chats', chatRoomId, 'messages'), messageData);
+    return { success: true };
+  } catch (error) {
+    console.error('Error sending message:', error);
+    return { success: false, error };
+  }
 }

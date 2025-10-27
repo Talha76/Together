@@ -1,3 +1,4 @@
+// /src/hooks/useEncryption.js
 import { useState, useEffect } from 'react';
 import * as encryption from '../encryption';
 
@@ -23,35 +24,10 @@ export function useEncryption() {
     }
   }, []);
 
-  // Generate keys for QR method
-  const generateQRKeys = () => {
-    const keys = encryption.generateKeyPair();
-    setMyKeys(keys);
-    const qrData = encryption.generateQRData(keys.publicKey);
-    setQrCodeData(qrData);
-    return keys;
-  };
-
-  // Handle QR scan
-  const handleQRScan = (scannedData) => {
-    const parsed = encryption.parseQRData(scannedData);
-    if (!parsed) {
-      return { success: false, error: 'Invalid QR code format' };
-    }
-    
-    setTheirPublicKey(parsed.pk);
-    
-    // Generate shared secret
-    const secret = encryption.generateSharedSecret(myKeys.secretKey, parsed.pk);
-    setSharedSecret(secret);
-    
-    return { success: true };
-  };
-
   // Setup with shared code
   const setupWithCode = async (sharedCode) => {
-    if (sharedCode.length < 8) {
-      return { success: false, error: 'Shared code must be at least 8 characters for security' };
+    if (sharedCode.length < 6) {
+      return { success: false, error: 'Shared code must be at least 6 characters for security' };
     }
     
     try {
@@ -140,8 +116,6 @@ export function useEncryption() {
     setSharedSecret,
     setKeyExchangeMethod,
     setQrCodeData,
-    generateQRKeys,
-    handleQRScan,
     setupWithCode,
     saveEncryptionKeys,
     clearEncryptionData,

@@ -1,4 +1,4 @@
-import React from 'react';
+// src/components/CodeSetupScreen.jsx
 import { Key } from 'lucide-react';
 
 export default function CodeSetupScreen({ 
@@ -38,7 +38,7 @@ export default function CodeSetupScreen({
             </label>
             <input
               type="password"
-              placeholder="Min 8 characters"
+              placeholder="Min 6 characters"
               value={sharedCode}
               onChange={(e) => onSharedCodeChange(e.target.value)}
               className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:border-purple-400"

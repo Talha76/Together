@@ -5,14 +5,6 @@ import * as naclUtil from 'tweetnacl-util';
 // Import utilities with fallback
 const encodeBase64 = naclUtil.encodeBase64;
 const decodeBase64 = naclUtil.decodeBase64;
-const encodeUTF8 = naclUtil.encodeUTF8;
-const decodeUTF8 = naclUtil.decodeUTF8;
-
-// Manual UTF8 encoding fallback (in case util doesn't work)
-const stringToUint8Array = (str) => {
-  const encoder = new TextEncoder();
-  return encoder.encode(str);
-};
 
 // Generate a new key pair for asymmetric encryption
 export const generateKeyPair = () => {
@@ -155,95 +147,101 @@ export const decryptMessage = (encryptedData, sharedSecret) => {
   }
 };
 
-// Encrypt file data
-export const encryptFile = (fileDataBase64, sharedSecret) => {
-  const nonce = nacl.randomBytes(nacl.box.nonceLength);
-  
-  // Decode base64 to Uint8Array
-  const fileData = decodeBase64(fileDataBase64);
-  
-  const encrypted = nacl.box.after(
-    fileData,
-    nonce,
-    decodeBase64(sharedSecret)
-  );
-  
-  return {
-    nonce: encodeBase64(nonce),
-    ciphertext: encodeBase64(encrypted),
-  };
-};
-
-// Decrypt file data
-export const decryptFile = (encryptedData, sharedSecret) => {
+// Encrypt file with progress callback
+export function encryptFile(fileData, sharedSecret, onProgress) {
   try {
-    const decrypted = nacl.box.open.after(
-      decodeBase64(encryptedData.ciphertext),
-      decodeBase64(encryptedData.nonce),
-      decodeBase64(sharedSecret)
-    );
-    
-    if (!decrypted) {
-      throw new Error('File decryption failed');
-    }
-    
-    return encodeBase64(decrypted);
-  } catch (error) {
-    console.error('File decryption error:', error);
-    return null;
-  }
-};
+    if (!sharedSecret) throw new Error('No encryption key');
 
-// Generate QR code data with key exchange info
-export function generateQRData(publicKey, exchangeId = null) {
-  const data = {
-    v: 1, // version
-    pk: publicKey,
-  };
-  
-  if (exchangeId) {
-    data.exchangeId = exchangeId;
-  }
-  
-  return JSON.stringify(data);
-}
+    // Convert base64 file data to bytes
+    const fileBytes = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
+    
+    // For large files, encrypt in chunks
+    const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
+    const totalChunks = Math.ceil(fileBytes.length / CHUNK_SIZE);
+    const encryptedChunks = [];
 
-// Parse QR code data
-export function parseQRData(qrDataString) {
-  try {
-    const data = JSON.parse(qrDataString);
-    if (!data.pk || !data.v) {
-      return null;
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, fileBytes.length);
+      const chunk = fileBytes.slice(start, end);
+
+      // Generate unique nonce per chunk
+      const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
+      
+      // Encrypt chunk
+      const secretKey = typeof sharedSecret === 'string'
+        ? Uint8Array.from(atob(sharedSecret), c => c.charCodeAt(0))
+        : new Uint8Array(Object.values(sharedSecret));
+
+      const encrypted = nacl.secretbox(chunk, nonce, secretKey);
+
+      encryptedChunks.push({
+        nonce: btoa(String.fromCharCode(...nonce)),
+        data: btoa(String.fromCharCode(...encrypted)),
+      });
+
+      // Report progress
+      if (onProgress) {
+        onProgress(Math.round(((i + 1) / totalChunks) * 100));
+      }
     }
+
     return {
-      publicKey: data.pk,
-      pk: data.pk,
-      version: data.v,
-      exchangeId: data.exchangeId || null
+      chunks: encryptedChunks,
+      totalSize: fileBytes.length,
     };
-  } catch {
-    return null;
+  } catch (error) {
+    console.error('Encryption failed:', error);
+    throw error;
   }
 }
 
-// Generate QR with just exchangeId (secure!)
-export function generateQRDataV2(exchangeId) {
-  return JSON.stringify({
-    v: 2,
-    eid: exchangeId, // Only exchange ID, not keys
-    ts: Date.now()
-  });
-}
-
-// Parse QR v2
-export function parseQRDataV2(qrString) {
+// Decrypt file with progress callback
+export function decryptFile(encryptedChunks, sharedSecret, onProgress) {
   try {
-    const data = JSON.parse(qrString);
-    if (data.v === 2 && data.eid) {
-      return { success: true, exchangeId: data.eid };
+    if (!sharedSecret) throw new Error('No decryption key');
+
+    const decryptedChunks = [];
+    const totalChunks = encryptedChunks.length;
+
+    for (let i = 0; i < totalChunks; i++) {
+      const { nonce, data } = encryptedChunks[i];
+
+      const nonceBytes = Uint8Array.from(atob(nonce), c => c.charCodeAt(0));
+      const cipherBytes = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+
+      const secretKey = typeof sharedSecret === 'string'
+        ? Uint8Array.from(atob(sharedSecret), c => c.charCodeAt(0))
+        : new Uint8Array(Object.values(sharedSecret));
+
+      const decrypted = nacl.secretbox.open(cipherBytes, nonceBytes, secretKey);
+
+      if (!decrypted) {
+        throw new Error('Decryption failed - invalid key or corrupted data');
+      }
+
+      decryptedChunks.push(decrypted);
+
+      // Report progress
+      if (onProgress) {
+        onProgress(Math.round(((i + 1) / totalChunks) * 100));
+      }
     }
-    return { success: false };
-  } catch {
-    return { success: false };
+
+    // Combine all chunks
+    const totalLength = decryptedChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const combined = new Uint8Array(totalLength);
+    let offset = 0;
+
+    for (const chunk of decryptedChunks) {
+      combined.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    // Convert to base64
+    return btoa(String.fromCharCode(...combined));
+  } catch (error) {
+    console.error('Decryption failed:', error);
+    throw error;
   }
 }

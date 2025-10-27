@@ -1,4 +1,4 @@
-import React from 'react';
+// src/components/WelcomeScreen.jsx
 import { Heart, Lock, Shield } from 'lucide-react';
 
 export default function WelcomeScreen({ onGetStarted }) {

@@ -1,25 +1,33 @@
-import { useState, useEffect } from 'react';
-import { subscribeToMessages, sendMessage, getChatRoomId } from '../firebaseSync';
+// /src/hooks/useMessages.js
+import { useState, useEffect, useRef } from 'react';
+import {
+  subscribeToMessages,
+  sendMessageWithFile,
+  getChatRoomId,
+} from '../firebaseSync';
+import { megaStorage } from '../megaStorage';
+import { encryptFile, decryptFile } from '../encryption';
 
-export function useMessages(sharedSecret, encryptMessage, decryptMessage, encryptFile) {
+// Generate or retrieve device ID
+function getDeviceId() {
+  let deviceId = localStorage.getItem('deviceId');
+  if (!deviceId) {
+    deviceId = 'device_' + Math.random().toString(36).substring(2, 15);
+    localStorage.setItem('deviceId', deviceId);
+  }
+  return deviceId;
+}
+
+export function useMessages(sharedSecret, encryptMessage, decryptMessage) {
   const [messages, setMessages] = useState([]);
   const [chatRoomId, setChatRoomId] = useState(null);
+  const deviceIdRef = useRef(getDeviceId());
 
-  // Generate chat room ID from shared secret
+  // Initialize chatRoomId from sharedSecret
   useEffect(() => {
     if (sharedSecret) {
-      try {
-        // Convert sharedSecret to proper format
-        const secretBytes = typeof sharedSecret === 'string' 
-          ? Uint8Array.from(atob(sharedSecret), c => c.charCodeAt(0))
-          : new Uint8Array(Object.values(sharedSecret));
-        
-        const roomId = getChatRoomId(secretBytes);
-        setChatRoomId(roomId);
-        console.log('Chat Room ID:', roomId); // Debug
-      } catch (error) {
-        console.error('Error generating chat room ID:', error);
-      }
+      const roomId = getChatRoomId(sharedSecret);
+      setChatRoomId(roomId);
     }
   }, [sharedSecret]);
 
@@ -27,52 +35,41 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, encryp
   useEffect(() => {
     if (!chatRoomId || !sharedSecret) return;
 
-    console.log('Subscribing to messages for room:', chatRoomId); // Debug
-
     const unsubscribe = subscribeToMessages(chatRoomId, (firebaseMessages) => {
-      console.log('Received messages:', firebaseMessages.length); // Debug
-
-      // Decrypt messages from Firebase
       const decrypted = firebaseMessages.map((msg) => {
         try {
           const decryptedText = decryptMessage({
             ciphertext: msg.content.ciphertext,
-            nonce: msg.content.nonce
+            nonce: msg.content.nonce,
           });
 
-          let decryptedFile = null;
-          if (msg.file) {
-            decryptedFile = {
-              ...msg.file,
-              decrypted: true,
-            };
-          }
+          // Determine sender based on device ID
+          const isOwnMessage = msg.senderId === deviceIdRef.current;
 
           return {
             id: msg.id,
-            sender: 'Partner', // You can enhance this later
+            sender: isOwnMessage ? 'You' : 'Partner',
             text: decryptedText,
-            timestamp: new Date(msg.createdAt).toLocaleTimeString([], { 
-              hour: '2-digit', 
-              minute: '2-digit' 
+            timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
             }),
             date: new Date(msg.createdAt).toLocaleDateString(),
-            file: decryptedFile,
+            file: msg.file || null,
+            type: msg.type || 'text',
             decrypted: true,
-            synced: true
+            synced: true,
           };
         } catch (error) {
           console.error('Failed to decrypt message:', error);
           return {
             id: msg.id,
             text: '[Decryption failed]',
-            timestamp: new Date(msg.createdAt).toLocaleTimeString([], { 
-              hour: '2-digit', 
-              minute: '2-digit' 
+            timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
             }),
-            date: new Date(msg.createdAt).toLocaleDateString(),
             decrypted: false,
-            synced: true
           };
         }
       });
@@ -83,63 +80,132 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, encryp
     return () => unsubscribe();
   }, [chatRoomId, sharedSecret, decryptMessage]);
 
-  const addMessage = async (userName, inputText, selectedFile) => {
+  const addMessage = async (userName, inputText, selectedFile, onProgress) => {
     if (!sharedSecret || !chatRoomId) {
-      return { success: false, error: 'Encryption not set up!' };
+      throw new Error('Encryption not set up!');
     }
 
     if (!inputText.trim() && !selectedFile) {
-      return { success: false, error: 'No message or file to send' };
+      throw new Error('No message or file to send');
     }
 
     try {
-      let encryptedFileData = null;
+      let fileMetadata = null;
 
-      // Encrypt file if attached
+      // Handle file upload
       if (selectedFile) {
+        // Read file
         const fileBuffer = await selectedFile.arrayBuffer();
         const fileBytes = new Uint8Array(fileBuffer);
-        
-        // Convert to base64 for encryption
         const base64Data = btoa(String.fromCharCode(...fileBytes));
-        const encryptedFile = encryptFile(base64Data);
 
-        encryptedFileData = {
-          data: encryptedFile.ciphertext,
-          nonce: encryptedFile.nonce,
+        // Encrypt file
+        console.log('🔐 Encrypting file...');
+        const encryptedFile = encryptFile(base64Data, sharedSecret, (progress) => {
+          if (onProgress) onProgress(progress * 0.3); // 0-30%
+        });
+
+        // Upload to Mega.nz
+        console.log('📤 Uploading to Mega.nz...');
+        const uploadResult = await megaStorage.uploadFile(
+          JSON.stringify(encryptedFile),
+          `encrypted_${selectedFile.name}`,
+          (progress) => {
+            if (onProgress) onProgress(30 + progress * 0.7); // 30-100%
+          }
+        );
+
+        if (!uploadResult.success) {
+          throw new Error('Failed to upload file: ' + uploadResult.error);
+        }
+
+        fileMetadata = {
+          megaLink: uploadResult.link,
           name: selectedFile.name,
           type: selectedFile.type,
           size: selectedFile.size,
+          totalSize: encryptedFile.totalSize,
         };
       }
 
-      // Encrypt text message
-      const encryptedText = encryptMessage(inputText || '📎 File');
+      // Encrypt message text
+      const messageText = inputText.trim() || (selectedFile ? '📎 File' : '');
+      const encryptedText = encryptMessage(messageText);
 
-      console.log('Sending message to room:', chatRoomId); // Debug
+      // Send to Firestore with device ID
+      const result = await sendMessageWithFile(
+        chatRoomId,
+        encryptedText,
+        fileMetadata,
+        deviceIdRef.current
+      );
 
-      // Send to Firebase
-      const result = await sendMessage(chatRoomId, encryptedText, encryptedFileData);
-      
       if (!result.success) {
-        return { success: false, error: 'Failed to send to Firebase' };
+        throw new Error('Failed to send to Firebase');
       }
 
+      if (onProgress) onProgress(100);
+      
       return { success: true };
     } catch (error) {
       console.error('Error sending message:', error);
-      return { success: false, error: 'Failed to send message: ' + error.message };
+      return { success: false, error: error.message };
     }
   };
 
-  const clearMessages = () => {
-    setMessages([]);
+  const downloadFile = async (fileMetadata, onProgress) => {
+    try {
+      // Download from Mega.nz
+      console.log('📥 Downloading from Mega.nz...');
+      const downloadResult = await megaStorage.downloadFile(
+        fileMetadata.megaLink,
+        (progress) => {
+          if (onProgress) onProgress(progress * 0.7); // 0-70%
+        }
+      );
+
+      if (!downloadResult.success) {
+        throw new Error('Download failed: ' + downloadResult.error);
+      }
+
+      // Parse encrypted file data
+      const encryptedFile = JSON.parse(
+        atob(downloadResult.data)
+      );
+
+      // Decrypt file
+      console.log('🔓 Decrypting file...');
+      const decryptedData = decryptFile(
+        encryptedFile.chunks,
+        sharedSecret,
+        (progress) => {
+          if (onProgress) onProgress(70 + progress * 0.3); // 70-100%
+        }
+      );
+
+      // Create download link
+      const blob = new Blob(
+        [Uint8Array.from(atob(decryptedData), c => c.charCodeAt(0))],
+        { type: fileMetadata.type }
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileMetadata.name;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      if (onProgress) onProgress(100);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      throw error;
+    }
   };
 
   return {
     messages,
     addMessage,
-    clearMessages,
-    chatRoomId
+    downloadFile,
+    chatRoomId,
   };
 }

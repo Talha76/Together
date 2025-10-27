@@ -1,101 +1,146 @@
-import React, { useRef } from 'react';
-import { Send, Paperclip, X } from 'lucide-react';
+// src/components/MessageInput.jsx
+import { useState, useRef } from 'react';
+import { Send, Paperclip, X, Loader } from 'lucide-react';
 
-export default function MessageInput({ 
-  inputText,
-  selectedFile,
-  previewUrl,
-  onInputChange,
-  onFileSelect,
-  onRemoveFile,
-  onSendMessage
-}) {
+export function MessageInput({ onSendMessage, disabled }) {
+  const [message, setMessage] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
-  
-  const emojis = ['❤️', '😘', '🥰', '😍', '💕', '💖', '🌹', '✨'];
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check file size (limit to 100MB for demo)
+      if (file.size > 100 * 1024 * 1024) {
+        alert('File size must be less than 100MB');
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSend = async () => {
+    if ((!message.trim() && !selectedFile) || disabled || isUploading) return;
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      await onSendMessage(message, selectedFile, (progress) => {
+        setUploadProgress(progress);
+      });
+
+      setMessage('');
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Send failed:', error);
+      alert('Failed to send message');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      onSendMessage();
+      handleSend();
     }
   };
 
-  const addEmoji = (emoji) => {
-    onInputChange(inputText + emoji);
-  };
-
   return (
-    <div className="bg-white border-t shadow-lg">
-      <div className="max-w-4xl mx-auto px-4 py-4">
-        {selectedFile && (
-          <div className="mb-3 p-3 bg-pink-50 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {previewUrl ? (
-                <img src={previewUrl} alt="Preview" className="w-12 h-12 rounded object-cover" />
-              ) : (
-                <div className="w-12 h-12 bg-pink-100 rounded flex items-center justify-center">
-                  📄
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-700 truncate">{selectedFile.name}</p>
-                <p className="text-xs text-gray-500">
-                  {(selectedFile.size / 1024).toFixed(1)} KB • Will be encrypted
-                </p>
-              </div>
+    <div className="border-t border-gray-200 bg-white p-4">
+      {/* File Preview */}
+      {selectedFile && (
+        <div className="mb-3 flex items-center justify-between rounded-lg bg-blue-50 p-3">
+          <div className="flex items-center gap-3">
+            <Paperclip className="h-5 w-5 text-blue-600" />
+            <div>
+              <p className="text-sm font-medium text-gray-900">
+                {selectedFile.name}
+              </p>
+              <p className="text-xs text-gray-500">
+                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+              </p>
             </div>
-            <button
-              onClick={onRemoveFile}
-              className="text-gray-500 hover:text-red-500 transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
-        )}
-
-        <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
-          {emojis.map((emoji, index) => (
-            <button
-              key={index}
-              onClick={() => addEmoji(emoji)}
-              className="text-2xl hover:scale-125 transition-transform flex-shrink-0"
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex gap-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={onFileSelect}
-            accept="image/*,video/*,.pdf,.doc,.docx,.txt"
-            className="hidden"
-          />
           <button
-            onClick={() => fileInputRef.current?.click()}
-            className="bg-pink-100 text-pink-600 p-3 rounded-xl hover:bg-pink-200 transition"
-            title="Attach file (will be encrypted)"
+            onClick={handleRemoveFile}
+            disabled={isUploading}
+            className="rounded-full p-1 hover:bg-blue-100 disabled:opacity-50"
           >
-            <Paperclip className="w-6 h-6" />
-          </button>
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => onInputChange(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type encrypted message..."
-            className="flex-1 px-4 py-3 border-2 border-pink-200 rounded-xl focus:outline-none focus:border-pink-400"
-          />
-          <button
-            onClick={onSendMessage}
-            className="bg-gradient-to-r from-pink-500 to-purple-500 text-white p-3 rounded-xl hover:from-pink-600 hover:to-purple-600 transition"
-          >
-            <Send className="w-6 h-6" />
+            <X className="h-5 w-5 text-gray-600" />
           </button>
         </div>
+      )}
+
+      {/* Upload Progress */}
+      {isUploading && uploadProgress > 0 && (
+        <div className="mb-3">
+          <div className="mb-1 flex items-center justify-between text-sm">
+            <span className="text-gray-600">Uploading...</span>
+            <span className="font-medium text-blue-600">{uploadProgress}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+            <div
+              className="h-full bg-blue-600 transition-all duration-300"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Input Area */}
+      <div className="flex gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          onChange={handleFileSelect}
+          className="hidden"
+          disabled={isUploading}
+        />
+        
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled || isUploading}
+          className="rounded-lg p-3 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+        >
+          <Paperclip className="h-5 w-5" />
+        </button>
+
+        <input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder={isUploading ? "Uploading..." : "Type a message..."}
+          disabled={disabled || isUploading}
+          className="flex-1 rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:opacity-50"
+        />
+
+        <button
+          onClick={handleSend}
+          disabled={disabled || isUploading || (!message.trim() && !selectedFile)}
+          className="rounded-lg bg-blue-600 px-6 py-3 text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {isUploading ? (
+            <Loader className="h-5 w-5 animate-spin" />
+          ) : (
+            <Send className="h-5 w-5" />
+          )}
+        </button>
       </div>
     </div>
   );

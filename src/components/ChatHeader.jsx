@@ -1,4 +1,4 @@
-import React from 'react';
+// src/components/ChatHeader.jsx
 import { Heart, Shield } from 'lucide-react';
 
 export default function ChatHeader({ userName, encryptionStatus, onDisconnect }) {
