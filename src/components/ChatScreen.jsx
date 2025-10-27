@@ -2,7 +2,6 @@
 import ChatHeader from './ChatHeader';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
-import { megaConfig } from '../config';
 
 export default function ChatScreen({ 
   userName,
@@ -15,7 +14,6 @@ export default function ChatScreen({
 }) {
   return (
     <div className="flex h-screen flex-col">
-      {console.log('Using Mega Config:', megaConfig)}
       <ChatHeader 
         userName={userName} 
         encryptionStatus={encryptionStatus}
