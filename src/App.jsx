@@ -5,6 +5,7 @@ import CodeSetupScreen from './components/CodeSetupScreen';
 import ChatScreen from './components/ChatScreen';
 import { useEncryption } from './hooks/useEncryption';
 import { useMessages } from './hooks/useMessages';
+import { megaConfig } from './config';
 
 export default function TogetherChat() {
   const [userName, setUserName] = useState('');
@@ -89,24 +90,6 @@ export default function TogetherChat() {
     }
   };
 
-  // Render based on step
-  if (step === 'welcome') {
-    return <WelcomeScreen onGetStarted={() => setStep('code-setup')} />;
-  }
-
-  if (step === 'code-setup') {
-    return (
-      <CodeSetupScreen
-        userName={userName}
-        sharedCode={sharedCode}
-        onUserNameChange={setUserName}
-        onSharedCodeChange={setSharedCode}
-        onConnect={handleSetupWithCode}
-        onBack={() => setStep('welcome')}
-      />
-    );
-  }
-
   // Don't render chat if there's a room error
   if (roomError) {
     return (
@@ -126,7 +109,55 @@ export default function TogetherChat() {
     );
   }
 
-  // Chat Screen
+  // Render based on step
+  return (
+    <>
+      <input type="hidden" id="mega-password" value={megaConfig.password} />
+      {step === 'welcome' && (
+        <WelcomeScreen onGetStarted={() => setStep('code-setup')} />
+      )}
+      {step === 'code-setup' && (
+        <CodeSetupScreen
+          userName={userName}
+          sharedCode={sharedCode}
+          onUserNameChange={setUserName}
+          onSharedCodeChange={setSharedCode}
+          onConnect={handleSetupWithCode}
+          onBack={() => setStep('welcome')}
+        />
+      )}
+      {step === 'chat' && !roomError && (
+        <ChatScreen
+          userName={userName}
+          encryptionStatus={encryptionStatus}
+          participantCount={participantCount}
+          messages={messages}
+          onSendMessage={handleSendMessage}
+          onDownloadFile={handleDownloadFile}
+          onDisconnect={handleDisconnect}
+        />
+      )}
+    </>
+  );
+
+  if (step === 'welcome') {
+    return <WelcomeScreen onGetStarted={() => setStep('code-setup')} />;
+  }
+
+  if (step === 'code-setup') {
+    return (
+      <CodeSetupScreen
+        userName={userName}
+        sharedCode={sharedCode}
+        onUserNameChange={setUserName}
+        onSharedCodeChange={setSharedCode}
+        onConnect={handleSetupWithCode}
+        onBack={() => setStep('welcome')}
+      />
+    );
+  }
+
+
   return (
     <ChatScreen
       userName={userName}
