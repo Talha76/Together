@@ -1,6 +1,7 @@
-// src/components/MessageInput.jsx
+// src/components/MessageInput.jsx - Unlimited File Upload Support
 import { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, X, Loader, Smile } from 'lucide-react';
+import { Send, Paperclip, X, Loader, Smile, AlertCircle } from 'lucide-react';
+import { formatLargeFileSize, estimateUploadTime, checkMemoryAvailability } from '../utils/chunkedUpload';
 
 const EMOJI_LIST = ['❤️', '😊', '😂', '👍', '🎉', '😍', '🥰', '😘', '💕', '✨', '🌟', '💖', '😎', '🔥', '💯', '🙏', '👏', '🎊', '💐', '🌹'];
 
@@ -11,6 +12,7 @@ export function MessageInput({ onSendMessage, disabled }) {
   const [isUploading, setIsUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [inputHeight, setInputHeight] = useState('auto');
+  const [fileWarning, setFileWarning] = useState(null);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -24,20 +26,33 @@ export function MessageInput({ onSendMessage, disabled }) {
     }
   }, [message]);
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 100 * 1024 * 1024) {
-        alert('File size must be less than 100MB');
-        return;
+    if (!file) return;
+
+    // NO SIZE LIMIT - accept any file size
+    setFileWarning(null);
+
+    // Check memory availability for very large files
+    const GB = 1024 * 1024 * 1024;
+    if (file.size > 1 * GB) {
+      const memoryCheck = await checkMemoryAvailability(file.size);
+      if (memoryCheck.warning) {
+        setFileWarning({
+          type: 'warning',
+          message: memoryCheck.warning,
+          estimated: estimateUploadTime(file.size)
+        });
       }
-      setSelectedFile(file);
-      setShowEmojiPicker(false);
     }
+
+    setSelectedFile(file);
+    setShowEmojiPicker(false);
   };
 
   const handleRemoveFile = () => {
     setSelectedFile(null);
+    setFileWarning(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -57,6 +72,7 @@ export function MessageInput({ onSendMessage, disabled }) {
 
       setMessage('');
       setSelectedFile(null);
+      setFileWarning(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -65,7 +81,7 @@ export function MessageInput({ onSendMessage, disabled }) {
       }
     } catch (error) {
       console.error('Send failed:', error);
-      alert('Failed to send message');
+      alert('Failed to send message: ' + (error.message || 'Unknown error'));
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -87,36 +103,49 @@ export function MessageInput({ onSendMessage, disabled }) {
     }
   };
 
-  const formatFileSize = (bytes) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
-  };
-
   return (
     <div className="border-t border-gray-200 bg-white safe-area-bottom">
       {/* File Preview */}
       {selectedFile && (
         <div className="px-3 pt-3 sm:px-4 sm:pt-4">
-          <div className="flex items-center justify-between rounded-xl bg-blue-50 p-3">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <Paperclip className="h-5 w-5 text-blue-600 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {selectedFile.name}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {formatFileSize(selectedFile.size)}
-                </p>
+          <div className="rounded-xl bg-blue-50 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <Paperclip className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {selectedFile.name}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {formatLargeFileSize(selectedFile.size)}
+                  </p>
+                </div>
               </div>
+              <button
+                onClick={handleRemoveFile}
+                disabled={isUploading}
+                className="rounded-full p-1.5 hover:bg-blue-100 active:bg-blue-200 disabled:opacity-50 touch-manipulation flex-shrink-0 ml-2"
+              >
+                <X className="h-5 w-5 text-gray-600" />
+              </button>
             </div>
-            <button
-              onClick={handleRemoveFile}
-              disabled={isUploading}
-              className="rounded-full p-1.5 hover:bg-blue-100 active:bg-blue-200 disabled:opacity-50 touch-manipulation flex-shrink-0 ml-2"
-            >
-              <X className="h-5 w-5 text-gray-600" />
-            </button>
+
+            {/* Large File Warning */}
+            {fileWarning && (
+              <div className="flex items-start gap-2 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                <AlertCircle className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-yellow-800">
+                    {fileWarning.message}
+                  </p>
+                  {fileWarning.estimated && (
+                    <p className="text-xs text-yellow-700 mt-1">
+                      Estimated time: {fileWarning.estimated}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -125,8 +154,14 @@ export function MessageInput({ onSendMessage, disabled }) {
       {isUploading && uploadProgress > 0 && (
         <div className="px-3 pt-2 sm:px-4">
           <div className="flex items-center justify-between text-sm mb-2">
-            <span className="text-gray-600 text-xs sm:text-sm">Uploading...</span>
-            <span className="font-medium text-blue-600 text-xs sm:text-sm">{uploadProgress}%</span>
+            <span className="text-gray-600 text-xs sm:text-sm">
+              {uploadProgress < 30 ? 'Encrypting...' : 
+               uploadProgress < 99 ? 'Uploading...' : 
+               'Finalizing...'}
+            </span>
+            <span className="font-medium text-blue-600 text-xs sm:text-sm">
+              {uploadProgress}%
+            </span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
             <div
@@ -134,6 +169,11 @@ export function MessageInput({ onSendMessage, disabled }) {
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
+          {selectedFile && selectedFile.size > 100 * 1024 * 1024 && (
+            <p className="text-xs text-gray-500 mt-1 text-center">
+              Large file upload in progress... Please wait.
+            </p>
+          )}
         </div>
       )}
 
@@ -165,14 +205,14 @@ export function MessageInput({ onSendMessage, disabled }) {
           onChange={handleFileSelect}
           className="hidden"
           disabled={isUploading}
-          accept="image/*,video/*,application/pdf,.doc,.docx,.txt"
+          accept="*/*"
         />
         
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled || isUploading}
           className="rounded-full p-3 text-gray-600 hover:bg-gray-100 active:bg-gray-200 disabled:opacity-50 transition touch-manipulation flex-shrink-0"
-          title="Attach file"
+          title="Attach file (any size)"
         >
           <Paperclip className="h-5 w-5 sm:h-6 sm:w-6" />
         </button>

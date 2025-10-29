@@ -1,4 +1,4 @@
-// src/hooks/useMessages.js
+// src/hooks/useMessages.js - Updated with Streaming Encryption
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   subscribeToMessages,
@@ -6,7 +6,7 @@ import {
   getChatRoomId,
 } from '../firebaseSync';
 import { megaStorage } from '../megaStorage';
-import { encryptFile, decryptFile } from '../encryption';
+import { encryptFileStreaming, decryptFileStreaming } from '../encryption-streaming';
 import { chatRoomManager } from '../chatRoomManager';
 
 // Utility: Convert Uint8Array to base64 (avoiding stack overflow)
@@ -15,8 +15,8 @@ function uint8ArrayToBase64(uint8Array) {
   const chunks = [];
   
   for (let i = 0; i < uint8Array.length; i += chunkSize) {
-    const chunk = uint8Array.subarray(i, i + chunkSize);
-    chunks.push(String.fromCharCode.apply(null, chunk));
+    const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+    chunks.push(String.fromCharCode.apply(null, Array.from(chunk)));
   }
   
   return btoa(chunks.join(''));
@@ -98,101 +98,64 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage) {
 
     joinRoom();
 
-    // Cleanup on unmount
+    // Cleanup: leave room when component unmounts
     return () => {
-      chatRoomManager.cleanup(chatRoomId, currentDeviceId);
-      setCanAccessRoom(false);
+      chatRoomManager.leaveRoom(chatRoomId, currentDeviceId);
     };
   }, [chatRoomId]);
 
-  // Subscribe to Firebase messages ONLY if user can access room
+  // Subscribe to messages
   useEffect(() => {
-    if (!chatRoomId || !sharedSecret || !canAccessRoom) {
-      console.log('🚫 Not subscribing to messages - no room access');
-      return;
-    }
+    if (!chatRoomId || !canAccessRoom) return;
 
-    console.log('👂 Subscribing to messages...');
+    console.log('👂 Subscribing to messages in room:', chatRoomId);
 
-    const unsubscribe = subscribeToMessages(chatRoomId, (firebaseMessages) => {
-      const decrypted = firebaseMessages.map((msg) => {
-        try {
-          const decryptedText = decryptMessageRef.current({
-            ciphertext: msg.content.ciphertext,
-            nonce: msg.content.nonce,
-          });
+    const unsubscribe = subscribeToMessages(chatRoomId, (newMessages) => {
+      const decryptedMessages = newMessages.map((msg) => {
+        if (!msg.encrypted) return msg;
 
-          // Determine sender based on device ID
-          const isOwnMessage = msg.senderId === deviceIdRef.current;
-
-          return {
-            id: msg.id,
-            sender: isOwnMessage ? 'You' : 'Partner',
-            text: decryptedText,
-            timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            date: new Date(msg.createdAt).toLocaleDateString(),
-            file: msg.file || null,
-            type: msg.type || 'text',
-            decrypted: true,
-            synced: true,
-          };
-        } catch (error) {
-          console.error('Failed to decrypt message:', error);
-          return {
-            id: msg.id,
-            text: '[Decryption failed]',
-            timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            decrypted: false,
-          };
-        }
+        const decrypted = decryptMessageRef.current(msg.encrypted);
+        return {
+          ...msg,
+          text: decrypted || '[Encrypted]',
+        };
       });
 
-      setMessages(decrypted);
+      setMessages(decryptedMessages);
     });
 
     return () => {
-      console.log('🔌 Unsubscribing from messages...');
+      console.log('🛑 Unsubscribing from messages');
       unsubscribe();
     };
-  }, [chatRoomId, sharedSecret, canAccessRoom]);
+  }, [chatRoomId, canAccessRoom]);
 
+  // Add message with optional file (using streaming encryption for large files)
   const addMessage = useCallback(async (userName, inputText, selectedFile, onProgress) => {
     if (!canAccessRoom) {
-      throw new Error('Cannot send message - no room access');
+      return { success: false, error: 'Cannot send message - no room access' };
     }
 
-    if (roomError) {
-      throw new Error(roomError);
-    }
-
-    if (!sharedSecret || !chatRoomId) {
-      throw new Error('Encryption not set up!');
+    if (!sharedSecret) {
+      return { success: false, error: 'No encryption key found' };
     }
 
     if (!inputText.trim() && !selectedFile) {
-      throw new Error('No message or file to send');
+      return { success: false, error: 'No message or file to send' };
     }
 
     try {
       let fileMetadata = null;
 
-      // Handle file upload
+      // Handle file upload with STREAMING encryption
       if (selectedFile) {
         console.log('📎 Processing file:', selectedFile.name);
+        console.log('📦 File size:', (selectedFile.size / 1024 / 1024).toFixed(2), 'MB');
         
-        const fileBuffer = await selectedFile.arrayBuffer();
-        const fileBytes = new Uint8Array(fileBuffer);
-        const base64Data = uint8ArrayToBase64(fileBytes);
-
-        console.log('🔐 Encrypting file...');
-        const encryptedFile = encryptFile(base64Data, sharedSecret, (progress) => {
-          if (onProgress) onProgress(progress * 0.3);
+        // Use streaming encryption - processes file in chunks, no full memory load
+        console.log('🔐 Encrypting file in chunks...');
+        const encryptedFile = await encryptFileStreaming(selectedFile, sharedSecret, (progress) => {
+          if (onProgress) onProgress(progress * 0.3); // 0-30% for encryption
         });
 
         console.log('📦 Encrypted file chunks:', encryptedFile.chunks.length);
@@ -205,7 +168,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage) {
           encryptedFileBase64,
           `encrypted_${Date.now()}_${selectedFile.name}`,
           (progress) => {
-            if (onProgress) onProgress(30 + progress * 0.7);
+            if (onProgress) onProgress(30 + progress * 0.7); // 30-100% for upload
           }
         );
 
@@ -220,7 +183,8 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage) {
           name: selectedFile.name,
           type: selectedFile.type,
           size: selectedFile.size,
-          totalSize: encryptedFile.totalSize,
+          totalSize: encryptedFile.originalSize,
+          chunks: encryptedFile.totalChunks
         };
       }
 
@@ -250,6 +214,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage) {
     }
   }, [sharedSecret, chatRoomId, encryptMessage, roomError, canAccessRoom]);
 
+  // Download file with streaming decryption
   const downloadFile = useCallback(async (fileMetadata, onProgress) => {
     if (!canAccessRoom) {
       throw new Error('Cannot download file - no room access');
@@ -261,7 +226,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage) {
       const downloadResult = await megaStorage.downloadFile(
         fileMetadata.megaLink,
         (progress) => {
-          if (onProgress) onProgress(progress * 0.7);
+          if (onProgress) onProgress(progress * 0.7); // 0-70% for download
         }
       );
 
@@ -274,18 +239,20 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage) {
       const encryptedFileJSON = atob(downloadResult.data);
       const encryptedFile = JSON.parse(encryptedFileJSON);
 
-      console.log('🔓 Decrypting file...');
+      console.log('🔓 Decrypting file in chunks...');
 
-      const decryptedData = decryptFile(
-        encryptedFile.chunks,
+      // Use streaming decryption
+      const decryptedData = decryptFileStreaming(
+        encryptedFile,
         sharedSecret,
         (progress) => {
-          if (onProgress) onProgress(70 + progress * 0.3);
+          if (onProgress) onProgress(70 + progress * 0.3); // 70-100% for decryption
         }
       );
 
       console.log('✅ File decrypted');
 
+      // Convert base64 to blob
       const byteCharacters = atob(decryptedData);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {

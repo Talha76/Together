@@ -1,7 +1,46 @@
-// src/components/MessageList.jsx
+// src/components/MessageList.jsx - Fixed Timestamp Display
 import { Download, File, Loader, Image as ImageIcon, Video, Eye } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { MediaViewer } from './MediaViewer';
+
+// Format timestamp - handles both Date objects and Firebase Timestamps
+function formatMessageTimestamp(timestamp) {
+  if (!timestamp) return '';
+  
+  try {
+    let date;
+    
+    // Handle Firebase Timestamp object {seconds, nanoseconds}
+    if (timestamp?.seconds !== undefined) {
+      date = new Date(timestamp.seconds * 1000);
+    } 
+    // Handle millisecond timestamp
+    else if (typeof timestamp === 'number') {
+      date = new Date(timestamp);
+    }
+    // Handle Date object
+    else if (timestamp instanceof Date) {
+      date = timestamp;
+    }
+    // Handle string
+    else if (typeof timestamp === 'string') {
+      date = new Date(timestamp);
+    }
+    else {
+      return '';
+    }
+    
+    // Return formatted time
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch (error) {
+    console.error('Error formatting timestamp:', error);
+    return '';
+  }
+}
 
 export function MessageList({ messages, onDownloadFile }) {
   const messagesEndRef = useRef(null);
@@ -68,7 +107,7 @@ function MessageBubble({ message, onDownloadFile }) {
         URL.revokeObjectURL(thumbnailUrl);
       }
     };
-  }, [isImage, decryptedData, message.file?.type]);
+  }, [isImage, decryptedData, message.file?.type, thumbnailUrl]);
 
   const handleDownload = async () => {
     if (downloading || !message.file) return;
@@ -103,7 +142,7 @@ function MessageBubble({ message, onDownloadFile }) {
 
     try {
       const { megaStorage } = await import('../megaStorage');
-      const { decryptFile } = await import('../encryption');
+      const { decryptFileStreaming } = await import('../encryption-streaming');
       
       const sharedSecret = localStorage.getItem('togetherSharedSecret');
       if (!sharedSecret) {
@@ -127,8 +166,8 @@ function MessageBubble({ message, onDownloadFile }) {
       const encryptedFile = JSON.parse(encryptedFileJSON);
 
       console.log('🔓 Decrypting for preview...');
-      const decrypted = decryptFile(
-        encryptedFile.chunks,
+      const decrypted = decryptFileStreaming(
+        encryptedFile,
         sharedSecret,
         (progress) => {
           setDownloadProgress(Math.round(70 + progress * 0.3));
@@ -277,8 +316,10 @@ function MessageBubble({ message, onDownloadFile }) {
             </div>
           )}
 
-          {/* Timestamp */}
-          <p className="mt-1 text-[10px] sm:text-xs opacity-75">{message.timestamp}</p>
+          {/* Timestamp - Fixed to handle Firebase Timestamp objects */}
+          <p className="mt-1 text-[10px] sm:text-xs opacity-75">
+            {formatMessageTimestamp(message.timestamp)}
+          </p>
         </div>
       </div>
 

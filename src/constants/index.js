@@ -37,20 +37,32 @@ export const KEY_EXCHANGE_METHODS = {
 
 // File Upload Limits
 export const FILE_LIMITS = {
-  MAX_SIZE: 100 * 1024 * 1024, // 100MB
-  MAX_SIZE_DISPLAY: '100MB',
+  MAX_SIZE: Infinity, // No size limit - handle unlimited files
+  MAX_SIZE_DISPLAY: 'Unlimited',
   ALLOWED_TYPES: [
     'image/jpeg',
     'image/png',
     'image/gif',
     'image/webp',
+    'image/svg+xml',
     'video/mp4',
     'video/webm',
+    'video/quicktime',
+    'video/x-msvideo',
     'application/pdf',
     'text/plain',
-    'application/json'
+    'application/json',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/zip',
+    'application/x-rar-compressed',
+    'audio/mpeg',
+    'audio/wav',
+    'audio/ogg'
   ],
-  CHUNK_SIZE: 5 * 1024 * 1024 // 5MB chunks for upload
+  CHUNK_SIZE: 10 * 1024 * 1024 // 10MB chunks for better performance with large files
 }
 
 // Firebase Configuration

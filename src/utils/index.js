@@ -24,9 +24,8 @@ export const validateFile = (file) => {
     return { valid: false, errors };
   }
   
-  if (file.size > FILE_LIMITS.MAX_SIZE) {
-    errors.push(UI_MESSAGES.ERRORS.FILE_TOO_LARGE);
-  }
+  // No size limit - removed MAX_SIZE check
+  // Browser memory is the only limit
   
   if (!FILE_LIMITS.ALLOWED_TYPES.includes(file.type)) {
     errors.push(UI_MESSAGES.ERRORS.FILE_TYPE_NOT_ALLOWED);
