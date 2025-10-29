@@ -1,6 +1,7 @@
 // src/components/MessageInput.jsx
 import { useState, useRef, useEffect } from 'react';
 import { Send, Paperclip, X, Loader, Smile } from 'lucide-react';
+import { FILE_LIMITS } from '../constants';
 
 const EMOJI_LIST = ['❤️', '😊', '😂', '👍', '🎉', '😍', '🥰', '😘', '💕', '✨', '🌟', '💖', '😎', '🔥', '💯', '🙏', '👏', '🎊', '💐', '🌹'];
 
@@ -11,6 +12,7 @@ export function MessageInput({ onSendMessage, disabled }) {
   const [isUploading, setIsUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [inputHeight, setInputHeight] = useState('auto');
+  const [uploadController, setUploadController] = useState(null);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -27,8 +29,8 @@ export function MessageInput({ onSendMessage, disabled }) {
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 100 * 1024 * 1024) {
-        alert('File size must be less than 100MB');
+      if (file.size > FILE_LIMITS.MAX_SIZE) {
+        alert(`File size must be less than ${FILE_LIMITS.MAX_SIZE / (1024 * 1024)}MB`);
         return;
       }
       setSelectedFile(file);
@@ -43,17 +45,33 @@ export function MessageInput({ onSendMessage, disabled }) {
     }
   };
 
+  const handleCancelUpload = () => {
+    if (uploadController) {
+      uploadController.abort();
+      setUploadController(null);
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
   const handleSend = async () => {
     if ((!message.trim() && !selectedFile) || disabled || isUploading) return;
 
+    const controller = new AbortController();
+    setUploadController(controller);
     setIsUploading(true);
     setUploadProgress(0);
     setShowEmojiPicker(false);
 
     try {
-      await onSendMessage(message, selectedFile, (progress) => {
+      const result = await onSendMessage(message, selectedFile, (progress) => {
         setUploadProgress(progress);
-      });
+      }, controller.signal);
+
+      if (result?.cancelled) {
+        console.log('Upload cancelled by user');
+        return;
+      }
 
       setMessage('');
       setSelectedFile(null);
@@ -64,11 +82,16 @@ export function MessageInput({ onSendMessage, disabled }) {
         textareaRef.current.focus();
       }
     } catch (error) {
-      console.error('Send failed:', error);
-      alert('Failed to send message');
+      if (error.name === 'AbortError' || error.message === 'Upload cancelled') {
+        console.log('Upload cancelled');
+      } else {
+        console.error('Send failed:', error);
+        alert('Failed to send message');
+      }
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
+      setUploadController(null);
     }
   };
 
@@ -126,7 +149,15 @@ export function MessageInput({ onSendMessage, disabled }) {
         <div className="px-3 pt-2 sm:px-4">
           <div className="flex items-center justify-between text-sm mb-2">
             <span className="text-gray-600 text-xs sm:text-sm">Uploading...</span>
-            <span className="font-medium text-blue-600 text-xs sm:text-sm">{uploadProgress}%</span>
+            <div className="flex items-center gap-3">
+              <span className="font-medium text-blue-600 text-xs sm:text-sm">{uploadProgress}%</span>
+              <button
+                onClick={handleCancelUpload}
+                className="text-xs sm:text-sm text-red-600 hover:text-red-700 font-medium touch-manipulation"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
             <div
