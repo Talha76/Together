@@ -170,8 +170,8 @@ function MessageBubble({ message, onDownloadFile }) {
       setDecryptedData(decrypted);
       setShowViewer(true);
     } catch (error) {
-      if (error.name === 'AbortError' || error.message === 'Download cancelled') {
-        console.log('Preview download cancelled by user');
+      if (error.name === 'AbortError' || error.message === 'Download cancelled' || error.message === 'Upload cancelled') {
+        console.log('Preview cancelled by user');
       } else {
         console.error('Preview failed:', error);
         alert('Failed to load preview: ' + error.message);

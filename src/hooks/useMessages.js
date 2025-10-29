@@ -222,12 +222,14 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
         // Phase 2: Encrypting file (5-15%) - NOW ASYNC!
         console.log('🔒 Encrypting file in chunks (async)...');
         
+        let encryptionAborted = false;
         const encryptedFile = await encryptFileAsync(
           fileData,
           sharedSecret,
           (encryptProgress) => {
             if (abortSignal?.aborted) {
-              throw new Error('Upload cancelled');
+              encryptionAborted = true;
+              return; // Don't throw, just stop reporting progress
             }
             // Map encryption progress from 5% to 15%
             const totalProgress = 5 + (encryptProgress * 0.10);
@@ -235,8 +237,8 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
           }
         );
 
-        // Check if cancelled
-        if (abortSignal?.aborted) {
+        // Check if cancelled after encryption
+        if (encryptionAborted || abortSignal?.aborted) {
           throw new Error('Upload cancelled');
         }
 
@@ -251,9 +253,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
           encryptedFileData,
           selectedFile.name,
           (uploadProgress) => {
-            if (abortSignal?.aborted) {
-              throw new Error('Upload cancelled');
-            }
+            if (abortSignal?.aborted) return; // Don't throw
             // Map upload progress from 15% to 99%
             const totalProgress = 15 + (uploadProgress * 0.84);
             if (onProgress) onProgress(Math.round(totalProgress));
@@ -306,12 +306,13 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
       
       return { success: true };
     } catch (error) {
-      console.error('❌ Error sending message:', error);
-      
+      // Silent handling for cancellation
       if (error.message === 'Upload cancelled' || error.name === 'AbortError') {
+        console.log('Upload cancelled by user');
         return { success: false, cancelled: true };
       }
       
+      console.error('❌ Error sending message:', error);
       return { success: false, error: error.message };
     }
   }, [sharedSecret, chatRoomId, encryptMessage, roomError, canAccessRoom, userIdentifier]);
@@ -327,6 +328,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
       const downloadResult = await megaStorage.downloadFile(
         fileMetadata.megaLink,
         (progress) => {
+          if (abortSignal?.aborted) return; // Don't throw
           if (onProgress) onProgress(progress * 0.5);
         }
       );
@@ -352,6 +354,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
           allChunks,
           sharedSecret,
           (decryptProgress) => {
+            if (abortSignal?.aborted) return; // Don't throw
             const progress = 50 + (decryptProgress * 0.5);
             if (onProgress) onProgress(progress);
           }
@@ -365,6 +368,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
           allChunks,
           sharedSecret,
           (decryptProgress) => {
+            if (abortSignal?.aborted) return; // Don't throw
             const progress = 50 + (decryptProgress * 0.5);
             if (onProgress) onProgress(progress);
           }

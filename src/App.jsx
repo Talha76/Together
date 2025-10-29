@@ -86,9 +86,12 @@ export default function TogetherChat() {
 
   const handleSendMessage = async (inputText, selectedFile, onProgress, abortSignal) => {
     const result = await addMessage(userName, inputText, selectedFile, onProgress, abortSignal);
-    if (!result.success && result.error) {
+    
+    // Don't show alert for cancellations
+    if (!result.success && !result.cancelled && result.error) {
       alert(result.error);
     }
+    
     return result;
   };
 
