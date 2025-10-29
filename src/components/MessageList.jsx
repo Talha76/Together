@@ -258,14 +258,16 @@ function MessageBubble({ message, onDownloadFile }) {
             <div className={`${message.text && message.text !== '📎 File' ? 'mt-2' : ''} rounded-xl bg-black/10 p-2.5 sm:p-3`}>
               {/* Thumbnail Preview for Images */}
               {thumbnailUrl && isImage && (
-                <div className="mb-2 relative">
+                <div 
+                  className="mb-2 relative cursor-pointer"
+                  onClick={handleViewMedia}
+                >
                   <img
                     src={thumbnailUrl}
                     alt={message.file.name}
-                    className="w-full h-auto max-h-48 sm:max-h-64 object-cover rounded-lg cursor-pointer"
-                    onClick={handleViewMedia}
+                    className="w-full h-auto max-h-48 sm:max-h-64 object-cover rounded-lg"
                   />
-                  <div className="absolute inset-0 bg-black/20 rounded-lg flex items-center justify-center opacity-0 hover:opacity-100 active:opacity-100 transition-opacity">
+                  <div className="absolute inset-0 bg-black/20 rounded-lg flex items-center justify-center opacity-0 hover:opacity-100 active:opacity-100 transition-opacity pointer-events-none">
                     <Eye className="h-8 w-8 sm:h-10 sm:w-10 text-white drop-shadow-lg" />
                   </div>
                 </div>
