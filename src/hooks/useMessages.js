@@ -6,7 +6,7 @@ import {
   getChatRoomId,
 } from '../firebaseSync';
 import { megaStorage } from '../megaStorage';
-import { encryptFile, decryptFile } from '../encryption';
+import { encryptFileAsync, decryptFileAsync } from '../encryption';
 import { chatRoomManager } from '../chatRoomManager';
 import { FILE_LIMITS, UI_MESSAGES } from '../constants/index'
 
@@ -219,39 +219,21 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
           throw new Error('Upload cancelled');
         }
 
-        // Phase 2: Encrypting file (5-10%)
-        console.log('🔒 Encrypting file in chunks...');
+        // Phase 2: Encrypting file (5-15%) - NOW ASYNC!
+        console.log('🔒 Encrypting file in chunks (async)...');
         
-        const CHUNK_SIZE = FILE_LIMITS.CHUNK_SIZE;
-        const encryptedChunks = [];
-        
-        if (fileData.length <= CHUNK_SIZE) {
-          // Small file - encrypt all at once
-          if (abortSignal?.aborted) {
-            throw new Error('Upload cancelled');
-          }
-          if (onProgress) onProgress(6);
-          const encrypted = encryptFile(fileData, sharedSecret);
-          encryptedChunks.push(encrypted);
-          if (onProgress) onProgress(10);
-        } else {
-          // Large file - encrypt in chunks with progress
-          const totalChunks = Math.ceil(fileData.length / CHUNK_SIZE);
-          for (let i = 0; i < fileData.length; i += CHUNK_SIZE) {
+        const encryptedFile = await encryptFileAsync(
+          fileData,
+          sharedSecret,
+          (encryptProgress) => {
             if (abortSignal?.aborted) {
               throw new Error('Upload cancelled');
             }
-            
-            const chunkIndex = Math.floor(i / CHUNK_SIZE);
-            const chunk = fileData.substring(i, Math.min(i + CHUNK_SIZE, fileData.length));
-            const encryptedChunk = encryptFile(chunk, sharedSecret);
-            encryptedChunks.push(encryptedChunk);
-            
-            // Encryption progress: 5% to 10% (5% range)
-            const encryptProgress = 5 + ((chunkIndex + 1) / totalChunks) * 5;
-            if (onProgress) onProgress(Math.round(encryptProgress));
+            // Map encryption progress from 5% to 15%
+            const totalProgress = 5 + (encryptProgress * 0.10);
+            if (onProgress) onProgress(Math.round(totalProgress));
           }
-        }
+        );
 
         // Check if cancelled
         if (abortSignal?.aborted) {
@@ -259,11 +241,11 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
         }
 
         const encryptedFileData = btoa(JSON.stringify({ 
-          chunks: encryptedChunks,
-          isChunked: encryptedChunks.length > 1
+          chunks: encryptedFile.chunks,
+          isChunked: encryptedFile.chunks.length > 1
         }));
 
-        // Phase 3: Uploading to Mega.nz (10-99%)
+        // Phase 3: Uploading to Mega.nz (15-99%)
         console.log('☁️ Uploading to Mega.nz...');
         const uploadResult = await megaStorage.uploadFile(
           encryptedFileData,
@@ -272,8 +254,8 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
             if (abortSignal?.aborted) {
               throw new Error('Upload cancelled');
             }
-            // Map upload progress from 10% to 99%
-            const totalProgress = 10 + (uploadProgress * 0.89);
+            // Map upload progress from 15% to 99%
+            const totalProgress = 15 + (uploadProgress * 0.84);
             if (onProgress) onProgress(Math.round(totalProgress));
           },
           abortSignal // Pass abort signal to Mega upload
@@ -358,32 +340,35 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
       const encryptedFileJSON = atob(downloadResult.data);
       const encryptedFileData = JSON.parse(encryptedFileJSON);
 
-      console.log('🔓 Decrypting file...');
+      console.log('🔓 Decrypting file (async)...');
 
       let decryptedData;
       
       if (encryptedFileData.isChunked && encryptedFileData.chunks.length > 1) {
-        // Decrypt chunks and combine
-        const decryptedChunks = [];
-        for (let i = 0; i < encryptedFileData.chunks.length; i++) {
-          const chunk = decryptFile(
-            encryptedFileData.chunks[i].chunks || encryptedFileData.chunks[i],
-            sharedSecret
-          );
-          decryptedChunks.push(chunk);
-          
-          const progress = ((i + 1) / encryptedFileData.chunks.length) * 50;
-          if (onProgress) onProgress(50 + progress);
-        }
-        decryptedData = decryptedChunks.join('');
+        // Decrypt all chunks at once (async)
+        const allChunks = encryptedFileData.chunks.flatMap(chunk => chunk.chunks || [chunk]);
+        
+        decryptedData = await decryptFileAsync(
+          allChunks,
+          sharedSecret,
+          (decryptProgress) => {
+            const progress = 50 + (decryptProgress * 0.5);
+            if (onProgress) onProgress(progress);
+          }
+        );
       } else {
         // Single chunk or old format
         const chunks = encryptedFileData.chunks || [encryptedFileData];
-        decryptedData = decryptFile(
-          chunks[0].chunks || chunks[0],
-          sharedSecret
+        const allChunks = chunks[0].chunks || [chunks[0]];
+        
+        decryptedData = await decryptFileAsync(
+          allChunks,
+          sharedSecret,
+          (decryptProgress) => {
+            const progress = 50 + (decryptProgress * 0.5);
+            if (onProgress) onProgress(progress);
+          }
         );
-        if (onProgress) onProgress(75);
       }
 
       console.log('✅ File decrypted');

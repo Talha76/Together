@@ -2,6 +2,7 @@
 import { Download, File, Loader, Image as ImageIcon, Video, Eye, Pause, Play } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { MediaViewer } from './MediaViewer';
+import { decryptFileAsync } from '../encryption';
 
 export function MessageList({ messages, onDownloadFile }) {
   const messagesEndRef = useRef(null);
@@ -112,7 +113,6 @@ function MessageBubble({ message, onDownloadFile }) {
 
     try {
       const { megaStorage } = await import('../megaStorage');
-      const { decryptFile } = await import('../encryption');
       
       const sharedSecret = localStorage.getItem('togetherSharedSecret');
       if (!sharedSecret) {
@@ -125,7 +125,7 @@ function MessageBubble({ message, onDownloadFile }) {
         message.file.megaLink,
         (progress) => {
           if (!downloadControllerRef.current?.signal.aborted) {
-            setDownloadProgress(Math.round(progress * 0.7));
+            setDownloadProgress(Math.round(progress * 0.5));
           }
         },
         controller.signal
@@ -144,13 +144,19 @@ function MessageBubble({ message, onDownloadFile }) {
       const encryptedFileJSON = atob(downloadResult.data);
       const encryptedFile = JSON.parse(encryptedFileJSON);
 
-      console.log('🔓 Decrypting for preview...');
-      const decrypted = decryptFile(
-        encryptedFile.chunks,
+      console.log('🔓 Decrypting for preview (async)...');
+      
+      // Use async decryption for non-blocking operation
+      const allChunks = encryptedFile.isChunked && encryptedFile.chunks.length > 1
+        ? encryptedFile.chunks.flatMap(chunk => chunk.chunks || [chunk])
+        : (encryptedFile.chunks?.[0]?.chunks || [encryptedFile.chunks?.[0]] || [encryptedFile]);
+
+      const decrypted = await decryptFileAsync(
+        allChunks,
         sharedSecret,
         (progress) => {
           if (!downloadControllerRef.current?.signal.aborted) {
-            setDownloadProgress(Math.round(70 + progress * 0.3));
+            setDownloadProgress(Math.round(50 + progress * 0.5));
           }
         }
       );

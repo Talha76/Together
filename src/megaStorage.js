@@ -170,7 +170,7 @@ export class MegaStorage {
       progressHandler = (stats) => {
         if (aborted || abortSignal?.aborted) {
           console.log('🛑 Upload aborted during progress');
-          abortHandler(); // This will remove listeners and destroy stream
+          abortHandler();
           return;
         }
         
@@ -297,6 +297,10 @@ export class MegaStorage {
   async downloadFile(megaLink, onProgress, abortSignal) {
     let downloadStream = null;
     let aborted = false;
+    let dataHandler = null;
+    let endHandler = null;
+    let errorHandler = null;
+    let closeHandler = null;
     
     try {
       console.log('📥 Starting download from Mega.nz:', megaLink);
@@ -334,6 +338,12 @@ export class MegaStorage {
         console.log('🛑 Download abort signal received');
         
         if (downloadStream) {
+          // Remove listeners before destroying
+          if (dataHandler) downloadStream.off('data', dataHandler);
+          if (endHandler) downloadStream.off('end', endHandler);
+          if (errorHandler) downloadStream.off('error', errorHandler);
+          if (closeHandler) downloadStream.off('close', closeHandler);
+          
           try {
             downloadStream.destroy();
           } catch (e) {
@@ -347,10 +357,10 @@ export class MegaStorage {
       }
 
       // Collect chunks
-      downloadStream.on('data', (chunk) => {
+      dataHandler = (chunk) => {
         if (aborted || abortSignal?.aborted) {
           console.log('🛑 Download aborted during data transfer');
-          downloadStream.destroy();
+          abortHandler();
           return;
         }
         
@@ -362,18 +372,20 @@ export class MegaStorage {
           onProgress(Math.round(progress));
         }
         console.log(`📊 Download: ${Math.round(progress)}%`);
-      });
+      };
+      
+      downloadStream.on('data', dataHandler);
 
       // Wait for download to complete
       const buffer = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           if (downloadStream) {
-            downloadStream.destroy();
+            abortHandler();
           }
           reject(new Error('Download timeout after 10 minutes'));
         }, 10 * 60 * 1000);
 
-        downloadStream.on('end', () => {
+        endHandler = () => {
           clearTimeout(timeout);
           
           if (aborted || abortSignal?.aborted) {
@@ -395,9 +407,10 @@ export class MegaStorage {
           }
           
           resolve(combined);
-        });
+        };
+        downloadStream.on('end', endHandler);
 
-        downloadStream.on('error', (error) => {
+        errorHandler = (error) => {
           clearTimeout(timeout);
           console.error('❌ Download stream error:', error);
           
@@ -406,16 +419,18 @@ export class MegaStorage {
           } else {
             reject(error);
           }
-        });
+        };
+        downloadStream.on('error', errorHandler);
 
-        downloadStream.on('close', () => {
+        closeHandler = () => {
           clearTimeout(timeout);
           
           if (aborted || abortSignal?.aborted) {
             console.log('🛑 Download stream closed due to abort');
             reject(new Error('Download cancelled'));
           }
-        });
+        };
+        downloadStream.on('close', closeHandler);
       });
 
       // Remove abort listener
@@ -438,6 +453,10 @@ export class MegaStorage {
       // Cleanup
       if (downloadStream) {
         try {
+          if (dataHandler) downloadStream.off('data', dataHandler);
+          if (endHandler) downloadStream.off('end', endHandler);
+          if (errorHandler) downloadStream.off('error', errorHandler);
+          if (closeHandler) downloadStream.off('close', closeHandler);
           downloadStream.destroy();
         } catch (e) {
           console.error('Error during download cleanup:', e);
