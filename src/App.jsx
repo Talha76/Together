@@ -112,7 +112,6 @@ export default function TogetherChat() {
   // Render based on step
   return (
     <>
-      <input type="hidden" id="mega-password" value={megaConfig.password} />
       {step === 'welcome' && (
         <WelcomeScreen onGetStarted={() => setStep('code-setup')} />
       )}
@@ -138,35 +137,5 @@ export default function TogetherChat() {
         />
       )}
     </>
-  );
-
-  if (step === 'welcome') {
-    return <WelcomeScreen onGetStarted={() => setStep('code-setup')} />;
-  }
-
-  if (step === 'code-setup') {
-    return (
-      <CodeSetupScreen
-        userName={userName}
-        sharedCode={sharedCode}
-        onUserNameChange={setUserName}
-        onSharedCodeChange={setSharedCode}
-        onConnect={handleSetupWithCode}
-        onBack={() => setStep('welcome')}
-      />
-    );
-  }
-
-
-  return (
-    <ChatScreen
-      userName={userName}
-      encryptionStatus={encryptionStatus}
-      participantCount={participantCount}
-      messages={messages}
-      onSendMessage={handleSendMessage}
-      onDownloadFile={handleDownloadFile}
-      onDisconnect={handleDisconnect}
-    />
   );
 }
