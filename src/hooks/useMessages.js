@@ -8,7 +8,7 @@ import {
 import { megaStorage } from '../megaStorage';
 import { encryptFileAsync, decryptFileAsync } from '../encryption';
 import { chatRoomManager } from '../chatRoomManager';
-import { FILE_LIMITS, UI_MESSAGES } from '../constants/index'
+import { FILE_LIMITS, UI_MESSAGES } from '../constants';
 
 // Utility: Convert Uint8Array to base64 (avoiding stack overflow)
 function uint8ArrayToBase64(uint8Array) {
@@ -120,7 +120,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
 
           return {
             id: msg.id,
-            sender: isOwnMessage ? 'You' : (msg.senderName || 'Partner'),
+            sender: isOwnMessage ? 'You' : ((participants && participants[msg.senderId]) || 'Partner'),
             text: decryptedText,
             timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
               hour: '2-digit',
