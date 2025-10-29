@@ -182,7 +182,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
         console.log('📎 Processing file:', selectedFile.name);
 
         // Check file size limit
-        if (selectedFile.size > FILE_LIMITS.MAXFILE_SIZE) {
+        if (selectedFile.size > FILE_LIMITS.MAX_SIZE) {
           throw new Error(UI_MESSAGES.ERRORS.FILE_TOO_LARGE);
         }
 
@@ -191,21 +191,21 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
           throw new Error('Upload cancelled');
         }
 
-        // Phase 1: Reading file (0-10%)
+        // Phase 1: Reading file (0-5%)
         if (onProgress) onProgress(0);
         const reader = new FileReader();
         const fileDataPromise = new Promise((resolve, reject) => {
           reader.onloadstart = () => {
-            if (onProgress) onProgress(2);
+            if (onProgress) onProgress(1);
           };
           reader.onprogress = (e) => {
             if (e.lengthComputable) {
-              const readProgress = (e.loaded / e.total) * 10;
-              if (onProgress) onProgress(readProgress);
+              const readProgress = 1 + (e.loaded / e.total) * 4; // 1% to 5%
+              if (onProgress) onProgress(Math.round(readProgress));
             }
           };
           reader.onload = () => {
-            if (onProgress) onProgress(10);
+            if (onProgress) onProgress(5);
             resolve(reader.result.split(',')[1]);
           };
           reader.onerror = reject;
@@ -219,7 +219,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
           throw new Error('Upload cancelled');
         }
 
-        // Phase 2: Encrypting file (10-50%)
+        // Phase 2: Encrypting file (5-10%)
         console.log('🔒 Encrypting file in chunks...');
         
         const CHUNK_SIZE = FILE_LIMITS.CHUNK_SIZE;
@@ -230,10 +230,10 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
           if (abortSignal?.aborted) {
             throw new Error('Upload cancelled');
           }
-          if (onProgress) onProgress(15);
+          if (onProgress) onProgress(6);
           const encrypted = encryptFile(fileData, sharedSecret);
           encryptedChunks.push(encrypted);
-          if (onProgress) onProgress(50);
+          if (onProgress) onProgress(10);
         } else {
           // Large file - encrypt in chunks with progress
           const totalChunks = Math.ceil(fileData.length / CHUNK_SIZE);
@@ -247,8 +247,8 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
             const encryptedChunk = encryptFile(chunk, sharedSecret);
             encryptedChunks.push(encryptedChunk);
             
-            // Encryption progress: 10% to 50% (40% range)
-            const encryptProgress = 10 + ((chunkIndex + 1) / totalChunks) * 40;
+            // Encryption progress: 5% to 10% (5% range)
+            const encryptProgress = 5 + ((chunkIndex + 1) / totalChunks) * 5;
             if (onProgress) onProgress(Math.round(encryptProgress));
           }
         }
@@ -263,7 +263,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
           isChunked: encryptedChunks.length > 1
         }));
 
-        // Phase 3: Uploading to Mega.nz (50-95%)
+        // Phase 3: Uploading to Mega.nz (10-99%)
         console.log('☁️ Uploading to Mega.nz...');
         const uploadResult = await megaStorage.uploadFile(
           encryptedFileData,
@@ -272,10 +272,11 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
             if (abortSignal?.aborted) {
               throw new Error('Upload cancelled');
             }
-            // Map upload progress from 50% to 95%
-            const totalProgress = 50 + (uploadProgress * 0.45);
+            // Map upload progress from 10% to 99%
+            const totalProgress = 10 + (uploadProgress * 0.89);
             if (onProgress) onProgress(Math.round(totalProgress));
-          }
+          },
+          abortSignal // Pass abort signal to Mega upload
         );
 
         if (!uploadResult.success) {
@@ -291,7 +292,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
         };
 
         console.log('✅ File uploaded to Mega.nz:', uploadResult.link);
-        if (onProgress) onProgress(95);
+        if (onProgress) onProgress(99);
       }
 
       // Check if cancelled before sending
@@ -299,12 +300,12 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
         throw new Error('Upload cancelled');
       }
 
-      // Phase 4: Sending to Firebase (95-100%)
+      // Phase 4: Sending to Firebase (99-100%)
       const messageText = inputText + (selectedFile ? ' 📎 File' : '');
       const encryptedText = encryptMessage(messageText);
 
       console.log('💾 Sending to Firestore...');
-      if (onProgress) onProgress(97);
+      if (onProgress) onProgress(99);
       
       const result = await sendMessageWithFile(
         chatRoomId,

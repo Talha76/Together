@@ -84,8 +84,8 @@ export default function TogetherChat() {
     setEncryptionStatus('Not encrypted');
   };
 
-  const handleSendMessage = async (inputText, selectedFile, onProgress) => {
-    const result = await addMessage(userName, inputText, selectedFile, onProgress);
+  const handleSendMessage = async (inputText, selectedFile, onProgress, abortSignal) => {
+    const result = await addMessage(userName, inputText, selectedFile, onProgress, abortSignal);
     if (!result.success && result.error) {
       alert(result.error);
     }

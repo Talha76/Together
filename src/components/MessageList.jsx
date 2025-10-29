@@ -1,5 +1,5 @@
 // src/components/MessageList.jsx
-import { Download, File, Loader, Image as ImageIcon, Video, Eye } from 'lucide-react';
+import { Download, File, Loader, Image as ImageIcon, Video, Eye, Pause, Play } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { MediaViewer } from './MediaViewer';
 
@@ -38,8 +38,10 @@ function MessageBubble({ message, onDownloadFile }) {
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [decryptedData, setDecryptedData] = useState(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
   const [thumbnailUrl, setThumbnailUrl] = useState(null);
+  const downloadControllerRef = useRef(null);
 
   const isImage = message.file?.type?.startsWith('image/');
   const isVideo = message.file?.type?.startsWith('video/');
@@ -75,6 +77,7 @@ function MessageBubble({ message, onDownloadFile }) {
 
     setDownloading(true);
     setDownloadProgress(0);
+    setIsPaused(false);
 
     try {
       await onDownloadFile(message.file, (progress) => {
@@ -86,6 +89,7 @@ function MessageBubble({ message, onDownloadFile }) {
     } finally {
       setDownloading(false);
       setDownloadProgress(0);
+      setIsPaused(false);
     }
   };
 
@@ -98,8 +102,13 @@ function MessageBubble({ message, onDownloadFile }) {
       return;
     }
 
+    // Create abort controller for this download
+    const controller = new AbortController();
+    downloadControllerRef.current = controller;
+
     setIsLoadingPreview(true);
     setDownloadProgress(0);
+    setIsPaused(false);
 
     try {
       const { megaStorage } = await import('../megaStorage');
@@ -115,9 +124,18 @@ function MessageBubble({ message, onDownloadFile }) {
       const downloadResult = await megaStorage.downloadFile(
         message.file.megaLink,
         (progress) => {
-          setDownloadProgress(Math.round(progress * 0.7));
-        }
+          if (!downloadControllerRef.current?.signal.aborted) {
+            setDownloadProgress(Math.round(progress * 0.7));
+          }
+        },
+        controller.signal
       );
+
+      // Check if cancelled
+      if (controller.signal.aborted) {
+        console.log('Preview download cancelled');
+        return;
+      }
 
       if (!downloadResult.success) {
         throw new Error('Download failed: ' + downloadResult.error);
@@ -131,19 +149,61 @@ function MessageBubble({ message, onDownloadFile }) {
         encryptedFile.chunks,
         sharedSecret,
         (progress) => {
-          setDownloadProgress(Math.round(70 + progress * 0.3));
+          if (!downloadControllerRef.current?.signal.aborted) {
+            setDownloadProgress(Math.round(70 + progress * 0.3));
+          }
         }
       );
+
+      // Check if cancelled after decryption
+      if (controller.signal.aborted) {
+        console.log('Preview cancelled after decryption');
+        return;
+      }
 
       setDecryptedData(decrypted);
       setShowViewer(true);
     } catch (error) {
-      console.error('Preview failed:', error);
-      alert('Failed to load preview: ' + error.message);
+      if (error.name === 'AbortError' || error.message === 'Download cancelled') {
+        console.log('Preview download cancelled by user');
+      } else {
+        console.error('Preview failed:', error);
+        alert('Failed to load preview: ' + error.message);
+      }
     } finally {
       setIsLoadingPreview(false);
       setDownloadProgress(0);
+      setIsPaused(false);
+      downloadControllerRef.current = null;
     }
+  };
+
+  const handlePauseResume = () => {
+    if (!downloadControllerRef.current) return;
+    
+    if (isPaused) {
+      // Resume - restart the download
+      setIsPaused(false);
+      handleViewMedia();
+    } else {
+      // Pause - cancel the download
+      setIsPaused(true);
+      if (downloadControllerRef.current) {
+        downloadControllerRef.current.abort();
+        downloadControllerRef.current = null;
+      }
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handleCancelPreview = () => {
+    if (downloadControllerRef.current) {
+      downloadControllerRef.current.abort();
+      downloadControllerRef.current = null;
+    }
+    setIsLoadingPreview(false);
+    setDownloadProgress(0);
+    setIsPaused(false);
   };
 
   const handleDownloadFromViewer = async () => {
@@ -243,6 +303,21 @@ function MessageBubble({ message, onDownloadFile }) {
                     </button>
                   )}
 
+                  {/* Pause/Resume Button (only during preview loading) */}
+                  {isLoadingPreview && (
+                    <button
+                      onClick={handlePauseResume}
+                      className="rounded-lg p-1.5 sm:p-2 hover:bg-black/10 active:bg-black/20 transition touch-manipulation"
+                      title={isPaused ? "Resume" : "Pause"}
+                    >
+                      {isPaused ? (
+                        <Play className="h-4 w-4 sm:h-5 sm:w-5" />
+                      ) : (
+                        <Pause className="h-4 w-4 sm:h-5 sm:w-5" />
+                      )}
+                    </button>
+                  )}
+
                   {/* Download Button */}
                   <button
                     onClick={handleDownload}
@@ -263,7 +338,9 @@ function MessageBubble({ message, onDownloadFile }) {
               {(downloading || isLoadingPreview) && downloadProgress > 0 && (
                 <div className="mt-2">
                   <div className="mb-1 flex items-center justify-between text-[10px] sm:text-xs">
-                    <span>{isLoadingPreview ? 'Loading...' : 'Downloading...'}</span>
+                    <span>
+                      {isPaused ? 'Paused' : (isLoadingPreview ? 'Loading preview...' : 'Downloading...')}
+                    </span>
                     <span className="font-medium">{downloadProgress}%</span>
                   </div>
                   <div className="h-1 sm:h-1.5 overflow-hidden rounded-full bg-black/20">
@@ -272,6 +349,14 @@ function MessageBubble({ message, onDownloadFile }) {
                       style={{ width: `${downloadProgress}%` }}
                     />
                   </div>
+                  {isLoadingPreview && (
+                    <button
+                      onClick={handleCancelPreview}
+                      className="mt-1 text-[10px] sm:text-xs opacity-75 hover:opacity-100 transition"
+                    >
+                      Cancel
+                    </button>
+                  )}
                 </div>
               )}
             </div>
