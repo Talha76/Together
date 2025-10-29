@@ -2,16 +2,6 @@
 import { Storage, File as MegaFile } from 'megajs';
 import { megaConfig } from './config';
 
-// // Browser-compatible base64 to ArrayBuffer
-// function base64ToArrayBuffer(base64) {
-//   const binaryString = atob(base64);
-//   const bytes = new Uint8Array(binaryString.length);
-//   for (let i = 0; i < binaryString.length; i++) {
-//     bytes[i] = binaryString.charCodeAt(i);
-//   }
-//   return bytes;
-// }
-
 // Browser-compatible base64 to ArrayBuffer (optimized)
 function base64ToArrayBuffer(base64) {
   // Remove data URL prefix if present
@@ -108,60 +98,158 @@ export class MegaStorage {
     }
   }
 
-  async uploadFile(encryptedData, fileName, onProgress) {
+  async uploadFile(encryptedData, fileName, onProgress, abortSignal) {
+    let uploadStream = null;
+    let aborted = false;
+    let progressHandler = null;
+    let completeHandler = null;
+    let errorHandler = null;
+    let closeHandler = null;
+    
     try {
       console.log('📤 Starting upload to Mega.nz:', fileName);
 
+      // Check if already aborted
+      if (abortSignal?.aborted) {
+        throw new Error('Upload cancelled');
+      }
+
       // Ensure storage is ready
       const storage = await this.ensureReady();
+
+      // Check if aborted after storage ready
+      if (abortSignal?.aborted) {
+        throw new Error('Upload cancelled');
+      }
 
       // Convert base64 to Uint8Array
       const uint8Array = base64ToArrayBuffer(encryptedData);
       
       console.log('📦 File size:', uint8Array.length, 'bytes');
 
+      // Check if aborted before starting upload
+      if (abortSignal?.aborted) {
+        throw new Error('Upload cancelled');
+      }
+
       // Create upload options
       const uploadOptions = {
         name: fileName,
         size: uint8Array.length,
-        // uploadCiphertext: true, // Upload raw data without Mega's encryption
       };
 
       console.log('🚀 Creating upload stream...');
-      const uploadStream = storage.upload(uploadOptions);
+      uploadStream = storage.upload(uploadOptions);
+
+      // Set up abort handler
+      const abortHandler = () => {
+        if (aborted) return; // Already aborted
+        aborted = true;
+        console.log('🛑 Abort signal received, destroying upload stream');
+        
+        // Remove all event listeners immediately
+        if (uploadStream) {
+          if (progressHandler) uploadStream.off('progress', progressHandler);
+          if (completeHandler) uploadStream.off('complete', completeHandler);
+          if (errorHandler) uploadStream.off('error', errorHandler);
+          if (closeHandler) uploadStream.off('close', closeHandler);
+          
+          try {
+            uploadStream.destroy();
+          } catch (e) {
+            console.error('Error destroying stream:', e);
+          }
+        }
+      };
+
+      if (abortSignal) {
+        abortSignal.addEventListener('abort', abortHandler);
+      }
 
       // Set up progress tracking
-      uploadStream.on('progress', (stats) => {
+      progressHandler = (stats) => {
+        if (aborted || abortSignal?.aborted) {
+          console.log('🛑 Upload aborted during progress');
+          abortHandler();
+          return;
+        }
+        
         const progress = (stats.bytesUploaded / stats.bytesTotal) * 100;
         if (onProgress) {
           onProgress(Math.round(progress));
         }
         console.log(`📊 Upload: ${Math.round(progress)}%`);
-      });
+      };
+      uploadStream.on('progress', progressHandler);
 
       // Write the data
       console.log('✍️ Writing data...');
+      
+      // Check before writing
+      if (aborted || abortSignal?.aborted) {
+        abortHandler();
+        throw new Error('Upload cancelled');
+      }
+      
       uploadStream.write(uint8Array);
       uploadStream.end();
 
       // Wait for upload to complete
       const file = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
+          if (uploadStream) {
+            abortHandler();
+          }
           reject(new Error('Upload timeout after 10 minutes'));
         }, 10 * 60 * 1000);
 
-        uploadStream.on('complete', (completedFile) => {
+        completeHandler = (completedFile) => {
           clearTimeout(timeout);
+          
+          // Check if aborted right before completion
+          if (aborted || abortSignal?.aborted) {
+            console.log('🛑 Upload aborted at completion');
+            reject(new Error('Upload cancelled'));
+            return;
+          }
+          
           console.log('✅ Upload complete!');
           resolve(completedFile);
-        });
+        };
+        uploadStream.on('complete', completeHandler);
 
-        uploadStream.on('error', (error) => {
+        errorHandler = (error) => {
           clearTimeout(timeout);
           console.error('❌ Upload error:', error);
-          reject(error);
-        });
+          
+          if (aborted || abortSignal?.aborted) {
+            reject(new Error('Upload cancelled'));
+          } else {
+            reject(error);
+          }
+        };
+        uploadStream.on('error', errorHandler);
+
+        closeHandler = () => {
+          clearTimeout(timeout);
+          
+          if (aborted || abortSignal?.aborted) {
+            console.log('🛑 Upload stream closed due to abort');
+            reject(new Error('Upload cancelled'));
+          }
+        };
+        uploadStream.on('close', closeHandler);
       });
+
+      // Remove abort listener
+      if (abortSignal) {
+        abortSignal.removeEventListener('abort', abortHandler);
+      }
+
+      // Final check before generating link
+      if (aborted || abortSignal?.aborted) {
+        throw new Error('Upload cancelled');
+      }
 
       // Get shareable link
       console.log('🔗 Generating share link...');
@@ -175,7 +263,30 @@ export class MegaStorage {
         size: uint8Array.length,
       };
     } catch (error) {
+      // Cleanup: remove all listeners and destroy stream
+      if (uploadStream) {
+        try {
+          if (progressHandler) uploadStream.off('progress', progressHandler);
+          if (completeHandler) uploadStream.off('complete', completeHandler);
+          if (errorHandler) uploadStream.off('error', errorHandler);
+          if (closeHandler) uploadStream.off('close', closeHandler);
+          uploadStream.destroy();
+        } catch (e) {
+          console.error('Error during cleanup:', e);
+        }
+      }
+      
       console.error('❌ Upload failed:', error);
+      
+      // Check if it was a cancellation
+      if (error.message === 'Upload cancelled' || abortSignal?.aborted) {
+        return {
+          success: false,
+          cancelled: true,
+          error: 'Upload cancelled',
+        };
+      }
+      
       return {
         success: false,
         error: error.message || 'Upload failed',
@@ -183,15 +294,32 @@ export class MegaStorage {
     }
   }
 
-  async downloadFile(megaLink, onProgress) {
+  async downloadFile(megaLink, onProgress, abortSignal) {
+    let downloadStream = null;
+    let aborted = false;
+    let dataHandler = null;
+    let endHandler = null;
+    let errorHandler = null;
+    let closeHandler = null;
+    
     try {
       console.log('📥 Starting download from Mega.nz:', megaLink);
+
+      // Check if already aborted
+      if (abortSignal?.aborted) {
+        throw new Error('Download cancelled');
+      }
 
       // Parse the Mega link
       const file = MegaFile.fromURL(megaLink);
       
       console.log('📋 Loading file attributes...');
       await file.loadAttributes();
+      
+      // Check if aborted after loading attributes
+      if (abortSignal?.aborted) {
+        throw new Error('Download cancelled');
+      }
       
       const totalSize = file.size;
       console.log('📦 File size:', totalSize, 'bytes');
@@ -201,10 +329,41 @@ export class MegaStorage {
 
       // Start download stream
       console.log('🌊 Starting download stream...');
-      const stream = file.download();
+      downloadStream = file.download();
+
+      // Set up abort handler
+      const abortHandler = () => {
+        if (aborted) return;
+        aborted = true;
+        console.log('🛑 Download abort signal received');
+        
+        if (downloadStream) {
+          // Remove listeners before destroying
+          if (dataHandler) downloadStream.off('data', dataHandler);
+          if (endHandler) downloadStream.off('end', endHandler);
+          if (errorHandler) downloadStream.off('error', errorHandler);
+          if (closeHandler) downloadStream.off('close', closeHandler);
+          
+          try {
+            downloadStream.destroy();
+          } catch (e) {
+            console.error('Error destroying download stream:', e);
+          }
+        }
+      };
+
+      if (abortSignal) {
+        abortSignal.addEventListener('abort', abortHandler);
+      }
 
       // Collect chunks
-      stream.on('data', (chunk) => {
+      dataHandler = (chunk) => {
+        if (aborted || abortSignal?.aborted) {
+          console.log('🛑 Download aborted during data transfer');
+          abortHandler();
+          return;
+        }
+        
         chunks.push(chunk);
         downloadedBytes += chunk.length;
         
@@ -213,16 +372,28 @@ export class MegaStorage {
           onProgress(Math.round(progress));
         }
         console.log(`📊 Download: ${Math.round(progress)}%`);
-      });
+      };
+      
+      downloadStream.on('data', dataHandler);
 
       // Wait for download to complete
       const buffer = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
+          if (downloadStream) {
+            abortHandler();
+          }
           reject(new Error('Download timeout after 10 minutes'));
         }, 10 * 60 * 1000);
 
-        stream.on('end', () => {
+        endHandler = () => {
           clearTimeout(timeout);
+          
+          if (aborted || abortSignal?.aborted) {
+            console.log('🛑 Download aborted at end');
+            reject(new Error('Download cancelled'));
+            return;
+          }
+          
           console.log('✅ Download stream complete');
           
           // Combine all chunks into single buffer
@@ -236,14 +407,36 @@ export class MegaStorage {
           }
           
           resolve(combined);
-        });
+        };
+        downloadStream.on('end', endHandler);
 
-        stream.on('error', (error) => {
+        errorHandler = (error) => {
           clearTimeout(timeout);
           console.error('❌ Download stream error:', error);
-          reject(error);
-        });
+          
+          if (aborted || abortSignal?.aborted) {
+            reject(new Error('Download cancelled'));
+          } else {
+            reject(error);
+          }
+        };
+        downloadStream.on('error', errorHandler);
+
+        closeHandler = () => {
+          clearTimeout(timeout);
+          
+          if (aborted || abortSignal?.aborted) {
+            console.log('🛑 Download stream closed due to abort');
+            reject(new Error('Download cancelled'));
+          }
+        };
+        downloadStream.on('close', closeHandler);
       });
+
+      // Remove abort listener
+      if (abortSignal) {
+        abortSignal.removeEventListener('abort', abortHandler);
+      }
 
       // Convert to base64
       console.log('🔄 Converting to base64...');
@@ -257,7 +450,30 @@ export class MegaStorage {
         size: buffer.length,
       };
     } catch (error) {
+      // Cleanup
+      if (downloadStream) {
+        try {
+          if (dataHandler) downloadStream.off('data', dataHandler);
+          if (endHandler) downloadStream.off('end', endHandler);
+          if (errorHandler) downloadStream.off('error', errorHandler);
+          if (closeHandler) downloadStream.off('close', closeHandler);
+          downloadStream.destroy();
+        } catch (e) {
+          console.error('Error during download cleanup:', e);
+        }
+      }
+      
       console.error('❌ Download failed:', error);
+      
+      // Check if it was a cancellation
+      if (error.message === 'Download cancelled' || abortSignal?.aborted) {
+        return {
+          success: false,
+          cancelled: true,
+          error: 'Download cancelled',
+        };
+      }
+      
       return {
         success: false,
         error: error.message || 'Download failed',

@@ -37,8 +37,8 @@ export const KEY_EXCHANGE_METHODS = {
 
 // File Upload Limits
 export const FILE_LIMITS = {
-  MAX_SIZE: 100 * 1024 * 1024, // 100MB
-  MAX_SIZE_DISPLAY: '100MB',
+  MAX_SIZE: 1024 * 1024 * 1024, // 1GB
+  MAX_SIZE_DISPLAY: '1GB',
   ALLOWED_TYPES: [
     'image/jpeg',
     'image/png',
@@ -50,7 +50,7 @@ export const FILE_LIMITS = {
     'text/plain',
     'application/json'
   ],
-  CHUNK_SIZE: 5 * 1024 * 1024 // 5MB chunks for upload
+  CHUNK_SIZE: 10 * 1024 * 1024 // 10MB chunks for upload
 }
 
 // Firebase Configuration

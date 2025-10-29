@@ -160,7 +160,126 @@ export const decryptMessage = (encryptedData, sharedSecret) => {
   }
 };
 
-// Encrypt file with progress callback
+// Create Web Worker instance (singleton)
+let cryptoWorker = null;
+let workerCallbacks = new Map();
+let messageId = 0;
+
+function getCryptoWorker() {
+  if (!cryptoWorker) {
+    // Create worker from the cryptoWorker.js file
+    cryptoWorker = new Worker(new URL('./workers/cryptoWorker.js', import.meta.url), {
+      type: 'module'
+    });
+
+    // Handle messages from worker
+    cryptoWorker.onmessage = (e) => {
+      const { type, id, result, progress, error } = e.data;
+      const callbacks = workerCallbacks.get(id);
+
+      if (!callbacks) return;
+
+      switch (type) {
+        case 'progress':
+          if (callbacks.onProgress) {
+            callbacks.onProgress(progress);
+          }
+          break;
+
+        case 'complete':
+          workerCallbacks.delete(id);
+          if (callbacks.onComplete) {
+            callbacks.onComplete(result);
+          }
+          break;
+
+        case 'error':
+          workerCallbacks.delete(id);
+          if (callbacks.onError) {
+            callbacks.onError(error);
+          }
+          break;
+      }
+    };
+
+    cryptoWorker.onerror = (error) => {
+      console.error('Crypto worker error:', error);
+      // Notify all pending callbacks
+      workerCallbacks.forEach((callbacks) => {
+        if (callbacks.onError) {
+          callbacks.onError('Worker error: ' + error.message);
+        }
+      });
+      workerCallbacks.clear();
+    };
+  }
+
+  return cryptoWorker;
+}
+
+// Encrypt file using Web Worker (non-blocking)
+export function encryptFileAsync(fileData, sharedSecret, onProgress) {
+  return new Promise((resolve, reject) => {
+    const worker = getCryptoWorker();
+    const id = messageId++;
+
+    workerCallbacks.set(id, {
+      onProgress,
+      onComplete: (result) => {
+        if (result.success) {
+          resolve(result.data);
+        } else {
+          reject(new Error(result.error));
+        }
+      },
+      onError: (error) => {
+        reject(new Error(error));
+      }
+    });
+
+    worker.postMessage({
+      type: 'encrypt',
+      id,
+      payload: {
+        fileData,
+        sharedSecret
+      }
+    });
+  });
+}
+
+// Decrypt file using Web Worker (non-blocking)
+export function decryptFileAsync(encryptedChunks, sharedSecret, onProgress) {
+  return new Promise((resolve, reject) => {
+    const worker = getCryptoWorker();
+    const id = messageId++;
+
+    workerCallbacks.set(id, {
+      onProgress,
+      onComplete: (result) => {
+        if (result.success) {
+          resolve(result.data);
+        } else {
+          reject(new Error(result.error));
+        }
+      },
+      onError: (error) => {
+        reject(new Error(error));
+      }
+    });
+
+    worker.postMessage({
+      type: 'decrypt',
+      id,
+      payload: {
+        encryptedChunks,
+        sharedSecret
+      }
+    });
+  });
+}
+
+// Synchronous versions for backward compatibility (use with caution for large files)
 export function encryptFile(fileData, sharedSecret, onProgress) {
   try {
     if (!sharedSecret) throw new Error('No encryption key');
@@ -209,7 +328,7 @@ export function encryptFile(fileData, sharedSecret, onProgress) {
   }
 }
 
-// Decrypt file with progress callback
+// Decrypt file (synchronous - use with caution for large files)
 export function decryptFile(encryptedChunks, sharedSecret, onProgress) {
   try {
     if (!sharedSecret) throw new Error('No decryption key');
