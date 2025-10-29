@@ -89,6 +89,7 @@ export default function TogetherChat() {
     if (!result.success && result.error) {
       alert(result.error);
     }
+    return result;
   };
 
   const handleDownloadFile = async (fileMetadata, onProgress) => {

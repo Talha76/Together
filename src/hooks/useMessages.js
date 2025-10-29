@@ -8,7 +8,7 @@ import {
 import { megaStorage } from '../megaStorage';
 import { encryptFile, decryptFile } from '../encryption';
 import { chatRoomManager } from '../chatRoomManager';
-import { FILE_LIMITS } from '../constants/index'
+import { FILE_LIMITS, UI_MESSAGES } from '../constants/index'
 
 // Utility: Convert Uint8Array to base64 (avoiding stack overflow)
 function uint8ArrayToBase64(uint8Array) {
@@ -182,8 +182,8 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
         console.log('📎 Processing file:', selectedFile.name);
 
         // Check file size limit
-        if (selectedFile.size > 1024 * 1024 * 1024) {
-          throw new Error('File is too large. Maximum size is 1GB');
+        if (selectedFile.size > FILE_LIMITS.MAXFILE_SIZE) {
+          throw new Error(UI_MESSAGES.ERRORS.FILE_TOO_LARGE);
         }
 
         // Check if cancelled
@@ -311,7 +311,6 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
         encryptedText,
         fileMetadata,
         userIdentifier,
-        userName
       );
 
       if (!result.success) {

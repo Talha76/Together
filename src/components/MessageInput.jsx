@@ -1,7 +1,7 @@
 // src/components/MessageInput.jsx
 import { useState, useRef, useEffect } from 'react';
 import { Send, Paperclip, X, Loader, Smile } from 'lucide-react';
-import { FILE_LIMITS } from '../constants';
+import { FILE_LIMITS, UI_MESSAGES } from '../constants';
 
 const EMOJI_LIST = ['❤️', '😊', '😂', '👍', '🎉', '😍', '🥰', '😘', '💕', '✨', '🌟', '💖', '😎', '🔥', '💯', '🙏', '👏', '🎊', '💐', '🌹'];
 
@@ -30,7 +30,7 @@ export function MessageInput({ onSendMessage, disabled }) {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > FILE_LIMITS.MAX_SIZE) {
-        alert(`File size must be less than ${FILE_LIMITS.MAX_SIZE / (1024 * 1024)}MB`);
+        alert(UI_MESSAGES.ERRORS.FILE_TOO_LARGE);
         return;
       }
       setSelectedFile(file);
