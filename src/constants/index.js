@@ -22,16 +22,12 @@ export const STORAGE_KEYS = {
 export const STEPS = {
   WELCOME: 'welcome',
   CHOOSE_METHOD: 'choose-method',
-  QR_SETUP: 'qr-setup',
-  QR_WAITING: 'qr-waiting',
-  QR_SHOW_MINE: 'qr-show-mine',
   CODE_SETUP: 'code-setup',
   CHAT: 'chat'
 }
 
 // Key Exchange Methods
 export const KEY_EXCHANGE_METHODS = {
-  QR_CODE: 'qr',
   SHARED_CODE: 'code'
 }
 
@@ -83,7 +79,6 @@ export const UI_MESSAGES = {
     DOWNLOAD_FAILED: 'Failed to download file',
     CONNECTION_LOST: 'Connection lost. Reconnecting...',
     ROOM_FULL: 'This room is full. Maximum 2 participants allowed.',
-    INVALID_QR: 'Invalid QR code. Please scan again.',
     WEAK_CODE: 'Password is too weak. Use at least 12 characters.'
   },
   SUCCESS: {
@@ -168,7 +163,6 @@ export const ERROR_CODES = {
   DOWNLOAD_FAILED: 'E006',
   CONNECTION_FAILED: 'E007',
   ROOM_FULL: 'E008',
-  INVALID_QR: 'E009'
 }
 
 export default {
