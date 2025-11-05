@@ -4,8 +4,34 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import App from './App'
 
 // Mock modules
-vi.mock('./hooks/useEncryption')
-vi.mock('./hooks/useMessages')
+vi.mock('./hooks/useEncryption', () => ({
+  useEncryption: () => ({
+    sharedSecret: null,
+    isEncrypted: false,
+    myKeys: null,
+    theirPublicKey: null,
+    keyExchangeMethod: null,
+    setupWithCode: vi.fn().mockResolvedValue({ 
+      success: true,
+      keys: { publicKey: 'pub', secretKey: 'sec' },
+      secret: 'shared-secret'
+    }),
+    clearEncryptionData: vi.fn(),
+    encryptMessage: vi.fn((msg) => ({ nonce: 'n', ciphertext: 'c' })),
+    decryptMessage: vi.fn((data) => 'decrypted')
+  })
+}))
+
+vi.mock('./hooks/useMessages', () => ({
+  useMessages: () => ({
+    messages: [],
+    addMessage: vi.fn().mockResolvedValue({ success: true }),
+    downloadFile: vi.fn(),
+    participantCount: 0,
+    roomError: null
+  })
+}))
+
 vi.mock('./firebase')
 vi.mock('./megaStorage')
 

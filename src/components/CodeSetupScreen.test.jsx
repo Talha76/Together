@@ -16,7 +16,7 @@ describe('CodeSetupScreen', () => {
   it('should render the setup screen', () => {
     render(<CodeSetupScreen {...defaultProps} />)
     
-    expect(screen.getByText('Shared Secret Code')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Shared Secret Code/i })).toBeInTheDocument()
     expect(screen.getByText(/Both of you enter the same code/i)).toBeInTheDocument()
   })
 

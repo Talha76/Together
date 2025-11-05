@@ -69,24 +69,30 @@ describe('ErrorBoundary', () => {
     expect(button).toBeInTheDocument()
   })
 
-  it('should reset error state when Try Again is clicked', () => {
-    const { rerender } = render(
-      <ErrorBoundary>
-        <ThrowError shouldThrow={true} />
-      </ErrorBoundary>
-    )
-    
-    const button = screen.getByRole('button', { name: /Try Again/i })
-    fireEvent.click(button)
-    
-    rerender(
-      <ErrorBoundary>
-        <ThrowError shouldThrow={false} />
-      </ErrorBoundary>
-    )
-    
-    expect(screen.getByText('No Error')).toBeInTheDocument()
-  })
+it('should reset error state when Try Again is clicked', () => {
+  // Create a controlled component that we can update
+  let shouldThrow = true
+  const TestWrapper = () => <ThrowError shouldThrow={shouldThrow} />
+  
+  const { rerender } = render(
+    <ErrorBoundary>
+      <TestWrapper />
+    </ErrorBoundary>
+  )
+  
+  // Error UI should be shown
+  expect(screen.getByText(/Oops! Something went wrong/i)).toBeInTheDocument()
+  
+  const button = screen.getByRole('button', { name: /Try Again/i })
+  
+  // Change the error condition and click Try Again
+  shouldThrow = false
+  fireEvent.click(button)
+  
+  // The error boundary should reset and show content
+  // Note: The boundary resets but we need to verify it doesn't show error anymore
+  expect(screen.queryByText(/Oops! Something went wrong/i)).not.toBeInTheDocument()
+})
 
   it('should call window.location.reload when Reload Page is clicked', () => {
     const reloadSpy = vi.spyOn(window.location, 'reload').mockImplementation(() => {})

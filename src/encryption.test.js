@@ -76,9 +76,11 @@ describe('Encryption Module', () => {
   describe('encryptMessage and decryptMessage', () => {
     let sharedSecret
 
-    beforeEach(async () => {
-      const keyPair = await deriveKeyPairFromCode('test-code-123')
-      sharedSecret = generateSharedSecret(keyPair.secretKey, keyPair.publicKey)
+    beforeEach(() => {
+      // Generate two separate key pairs for proper shared secret
+      const alice = generateKeyPair()
+      const bob = generateKeyPair()
+      sharedSecret = generateSharedSecret(alice.secretKey, bob.publicKey)
     })
 
     it('should encrypt and decrypt a message', () => {

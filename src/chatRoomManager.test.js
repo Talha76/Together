@@ -34,24 +34,24 @@ describe('ChatRoomManager', () => {
   let mockDeleteDoc
   let mockOnSnapshot
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.useFakeTimers()
     manager = new ChatRoomManager()
     
     // Get mocked functions
-    const firestore = require('firebase/firestore')
+    const firestore = await import('firebase/firestore')
     mockGetDoc = firestore.getDoc
     mockSetDoc = firestore.setDoc
     mockUpdateDoc = firestore.updateDoc
     mockDeleteDoc = firestore.deleteDoc
     mockOnSnapshot = firestore.onSnapshot
     
-    // Reset all mocks
-    mockGetDoc.mockClear()
-    mockSetDoc.mockClear()
-    mockUpdateDoc.mockClear()
-    mockDeleteDoc.mockClear()
-    mockOnSnapshot.mockClear()
+    // Reset all mocks if they have mockClear
+    if (mockGetDoc && typeof mockGetDoc.mockClear === 'function') mockGetDoc.mockClear()
+    if (mockSetDoc && typeof mockSetDoc.mockClear === 'function') mockSetDoc.mockClear()
+    if (mockUpdateDoc && typeof mockUpdateDoc.mockClear === 'function') mockUpdateDoc.mockClear()
+    if (mockDeleteDoc && typeof mockDeleteDoc.mockClear === 'function') mockDeleteDoc.mockClear()
+    if (mockOnSnapshot && typeof mockOnSnapshot.mockClear === 'function') mockOnSnapshot.mockClear()
   })
 
   afterEach(() => {

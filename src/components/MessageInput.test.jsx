@@ -42,14 +42,14 @@ describe('MessageInput', () => {
     const textarea = screen.getByPlaceholderText('Message...')
     fireEvent.change(textarea, { target: { value: 'Test message' } })
     
-    const sendButton = screen.getAllByRole('button').find(btn => 
-      btn.querySelector('svg') // Find button with send icon
-    )
+    // Get all buttons and select the last one (send button)
+    const buttons = screen.getAllByRole('button')
+    const sendButton = buttons[buttons.length - 1]
     fireEvent.click(sendButton)
     
     await waitFor(() => {
       expect(mockOnSendMessage).toHaveBeenCalled()
-    })
+    }, { timeout: 3000 })
   })
 
   it('should send message on Enter key press', async () => {

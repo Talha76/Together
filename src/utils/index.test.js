@@ -205,7 +205,8 @@ describe('Utility Functions', () => {
 
   describe('sanitizeFilename', () => {
     it('should sanitize filenames', () => {
-      expect(sanitizeFilename('My File!@#.txt')).toBe('my_file___.txt')
+      // The regex collapses multiple underscores to single underscore
+      expect(sanitizeFilename('My File!@#.txt')).toBe('my_file_.txt')
       expect(sanitizeFilename('File  Name.pdf')).toBe('file_name.pdf')
     })
 

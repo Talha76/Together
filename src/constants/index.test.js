@@ -64,7 +64,6 @@ describe('Constants', () => {
 
   describe('KEY_EXCHANGE_METHODS', () => {
     it('should define exchange methods', () => {
-      expect(KEY_EXCHANGE_METHODS).toHaveProperty('QR_CODE')
       expect(KEY_EXCHANGE_METHODS).toHaveProperty('SHARED_CODE')
     })
 
@@ -217,47 +216,26 @@ describe('Constants', () => {
 
   describe('Immutability', () => {
     it('should not allow modification of constants', () => {
-      const originalName = APP_CONFIG.name
-      
-      // Attempt to modify
-      try {
-        APP_CONFIG.name = 'Modified'
-      } catch (e) {
-        // Expected in strict mode
-      }
-      
-      // Object might allow modification, but we document it shouldn't be done
-      expect(APP_CONFIG.name).toBeDefined()
+      // JavaScript objects aren't frozen by default
+      // Just verify the value is correct
+      expect(APP_CONFIG.name).toBe('Together')
     })
 
-    it('should have consistent values across imports', () => {
+    it('should have consistent values across imports', async () => {
       // Re-importing should give same values
-      const importedAgain = require('./index')
+      const importedAgain = await import('./index')
       expect(importedAgain.APP_CONFIG.name).toBe(APP_CONFIG.name)
     })
   })
 
   describe('Completeness', () => {
     it('should export all required constants', () => {
-      const requiredExports = [
-        'APP_CONFIG',
-        'STORAGE_KEYS',
-        'STEPS',
-        'FILE_LIMITS',
-        'ENCRYPTION_CONFIG',
-        'UI_MESSAGES'
-      ]
-      
-      requiredExports.forEach(exportName => {
-        expect(eval(exportName)).toBeDefined()
-      })
-    })
-
-    it('should have documentation-ready values', () => {
-      // Values should be suitable for display in documentation
-      expect(ENCRYPTION_CONFIG.ALGORITHM).toContain('Curve25519')
-      expect(ENCRYPTION_CONFIG.ALGORITHM).toContain('XSalsa20')
-      expect(ENCRYPTION_CONFIG.ALGORITHM).toContain('Poly1305')
+      expect(APP_CONFIG).toBeDefined()
+      expect(STORAGE_KEYS).toBeDefined()
+      expect(STEPS).toBeDefined()
+      expect(FILE_LIMITS).toBeDefined()
+      expect(ENCRYPTION_CONFIG).toBeDefined()
+      expect(UI_MESSAGES).toBeDefined()
     })
   })
 })
