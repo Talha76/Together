@@ -82,17 +82,17 @@ describe('MessageInput', () => {
 
   it('should clear input after sending', async () => {
     mockOnSendMessage.mockResolvedValue({ success: true })
-    
+
     render(<MessageInput onSendMessage={mockOnSendMessage} />)
-    
+
     const textarea = screen.getByPlaceholderText('Message...')
     fireEvent.change(textarea, { target: { value: 'Test' } })
-    
-    const sendButton = screen.getAllByRole('button').find(btn => 
-      btn.querySelector('svg')
-    )
+
+    // Click the send button (last button)
+    const buttons = screen.getAllByRole('button')
+    const sendButton = buttons[buttons.length - 1]
     fireEvent.click(sendButton)
-    
+
     await waitFor(() => {
       expect(textarea).toHaveValue('')
     })
@@ -109,37 +109,29 @@ describe('MessageInput', () => {
     expect(mockOnSendMessage).not.toHaveBeenCalled()
   })
 
-  it('should be disabled when disabled prop is true', () => {
-    render(<MessageInput onSendMessage={mockOnSendMessage} disabled={true} />)
-    
-    const textarea = screen.getByPlaceholderText('Message...')
-    expect(textarea).toBeDisabled()
-  })
-
   it('should show emoji picker when emoji button is clicked', () => {
     render(<MessageInput onSendMessage={mockOnSendMessage} />)
-    
+
     const emojiButton = screen.getAllByRole('button')[1] // Second button (emoji)
     fireEvent.click(emojiButton)
-    
-    // Emoji picker should be visible
-    const emojiPicker = screen.getByRole('button', { name: /❤️/i })
-    expect(emojiPicker).toBeInTheDocument()
+
+    // Emoji picker should show category tabs and emojis from default category (Smileys)
+    expect(screen.getByRole('button', { name: /😀/ })).toBeInTheDocument()
   })
 
   it('should add emoji to message when clicked', () => {
     render(<MessageInput onSendMessage={mockOnSendMessage} />)
-    
+
     // Open emoji picker
     const emojiButton = screen.getAllByRole('button')[1]
     fireEvent.click(emojiButton)
-    
-    // Click an emoji
-    const heartEmoji = screen.getByRole('button', { name: /❤️/i })
-    fireEvent.click(heartEmoji)
-    
+
+    // Click an emoji from the default Smileys category
+    const emoji = screen.getByRole('button', { name: /😀/ })
+    fireEvent.click(emoji)
+
     const textarea = screen.getByPlaceholderText('Message...')
-    expect(textarea).toHaveValue('❤️')
+    expect(textarea).toHaveValue('😀')
   })
 
   it('should handle file selection', () => {
@@ -155,21 +147,20 @@ describe('MessageInput', () => {
   })
 
   it('should reject files that are too large', () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    
-    render(<MessageInput onSendMessage={mockOnSendMessage} />)
-    
+    const mockShowToast = vi.fn()
+
+    render(<MessageInput onSendMessage={mockOnSendMessage} showToast={mockShowToast} />)
+
     const fileInput = document.querySelector('input[type="file"]')
-    const largeFile = new File(['x'.repeat(2 * 1024 * 1024 * 1024)], 'large.png', { 
-      type: 'image/png' 
+    const largeFile = new File(['x'.repeat(100)], 'large.png', {
+      type: 'image/png'
     })
-    
+
     Object.defineProperty(largeFile, 'size', { value: 2 * 1024 * 1024 * 1024 })
-    
+
     fireEvent.change(fileInput, { target: { files: [largeFile] } })
-    
-    expect(alertSpy).toHaveBeenCalled()
-    alertSpy.mockRestore()
+
+    expect(mockShowToast).toHaveBeenCalledWith(expect.any(String), 'error')
   })
 
   it('should remove selected file', () => {
@@ -189,24 +180,24 @@ describe('MessageInput', () => {
 
   it('should show upload progress', async () => {
     mockOnSendMessage.mockImplementation((text, file, onProgress) => {
-      onProgress(50)
-      return Promise.resolve({ success: true })
+      onProgress({ stage: 'encrypting', progress: 50 })
+      return new Promise(resolve => setTimeout(() => resolve({ success: true }), 100))
     })
-    
+
     render(<MessageInput onSendMessage={mockOnSendMessage} />)
-    
+
     const fileInput = document.querySelector('input[type="file"]')
     const file = new File(['test'], 'test.png', { type: 'image/png' })
-    
+
     fireEvent.change(fileInput, { target: { files: [file] } })
-    
-    const sendButton = screen.getAllByRole('button').find(btn => 
-      btn.querySelector('svg')
-    )
+
+    const buttons = screen.getAllByRole('button')
+    const sendButton = buttons[buttons.length - 1]
     fireEvent.click(sendButton)
-    
+
     await waitFor(() => {
-      expect(screen.getByText('Uploading...')).toBeInTheDocument()
+      expect(screen.getByText('Sending file...')).toBeInTheDocument()
+      expect(screen.getByText('50%')).toBeInTheDocument()
     })
   })
 

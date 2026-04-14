@@ -33,8 +33,7 @@ export function MediaViewer({ fileMetadata, decryptedData, onClose, onDownload }
       const url = URL.createObjectURL(blob);
       setMediaUrl(url);
       setIsLoading(false);
-    } catch (err) {
-      console.error('Error creating media URL:', err);
+    } catch {
       setError('Failed to load media');
       setIsLoading(false);
     }
@@ -181,16 +180,14 @@ export function MediaViewer({ fileMetadata, decryptedData, onClose, onDownload }
         if (isVideo && screen.orientation && screen.orientation.lock) {
           try {
             await screen.orientation.lock('landscape');
-          } catch (e) {
-            console.log('Orientation lock not supported');
+          } catch {
           }
         }
       } else {
         await document.exitFullscreen();
         setIsFullscreen(false);
       }
-    } catch (err) {
-      console.error('Fullscreen error:', err);
+    } catch {
     }
   };
 

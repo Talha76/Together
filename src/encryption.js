@@ -1,23 +1,10 @@
 // src/encryption.js
 import nacl from 'tweetnacl';
 import * as naclUtil from 'tweetnacl-util';
+import { uint8ArrayToBase64 } from './utils/encoding';
 
-// Import utilities with fallback
 const encodeBase64 = naclUtil.encodeBase64;
 const decodeBase64 = naclUtil.decodeBase64;
-
-// Utility: Convert Uint8Array to base64 (avoiding stack overflow)
-function uint8ArrayToBase64(uint8Array) {
-  const chunkSize = 8192;
-  const chunks = [];
-  
-  for (let i = 0; i < uint8Array.length; i += chunkSize) {
-    const chunk = uint8Array.subarray(i, i + chunkSize);
-    chunks.push(String.fromCharCode.apply(null, chunk));
-  }
-  
-  return btoa(chunks.join(''));
-}
 
 // Generate a new key pair for asymmetric encryption
 export const generateKeyPair = () => {
@@ -37,101 +24,43 @@ export const generateSharedSecret = (mySecretKey, theirPublicKey) => {
   return encodeBase64(sharedKey);
 };
 
-// Derive key pair from shared code (compatible with all browsers)
+// Derive key pair from shared code
+// Primary: crypto.subtle SHA-512 (secure contexts). Fallback: nacl.hash SHA-512.
+// Both produce identical output — nacl.hash IS SHA-512.
 export const deriveKeyPairFromCode = async (sharedCode) => {
-  console.log('Starting key derivation...');
-  console.log('Shared code length:', sharedCode.length);
-  
-  try {
-    // First try Web Crypto API (preferred for better security)
-    if (typeof crypto !== 'undefined' && crypto.subtle) {
-      console.log('Trying Web Crypto API...');
-      const encoder = new TextEncoder();
-      const data = encoder.encode(sharedCode);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const seed = new Uint8Array(hashBuffer);
-      
-      console.log('Web Crypto seed type:', seed.constructor.name);
-      console.log('Web Crypto seed length:', seed.length);
-      
-      if (seed.length !== 32) {
-        throw new Error('Invalid seed length: ' + seed.length);
-      }
-      
-      const keyPair = nacl.box.keyPair.fromSecretKey(seed);
-      
-      console.log('✓ Web Crypto API successful!');
-      
-      return {
-        publicKey: encodeBase64(keyPair.publicKey),
-        secretKey: encodeBase64(keyPair.secretKey),
-      };
-    }
-  } catch (e) {
-    console.log('Web Crypto API failed:', e.message);
+  const encoder = new TextEncoder();
+  const encoded = encoder.encode(sharedCode);
+
+  let seed;
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const hashBuffer = await crypto.subtle.digest('SHA-512', encoded);
+    seed = new Uint8Array(hashBuffer).slice(0, 32);
+  } else {
+    seed = nacl.hash(encoded).slice(0, 32);
   }
-  
-  // Fallback: Use NaCl's built-in hash
-  console.log('Using NaCl fallback...');
-  
-  try {
-    // Use TextEncoder directly instead of encodeUTF8
-    const encoder = new TextEncoder();
-    const encoded = encoder.encode(sharedCode);
-    
-    console.log('Encoded type:', encoded.constructor.name);
-    console.log('Encoded length:', encoded.length);
-    console.log('Is Uint8Array?', encoded instanceof Uint8Array);
-    
-    if (!(encoded instanceof Uint8Array)) {
-      throw new Error('Encoded is not Uint8Array');
-    }
-    
-    const hashed = nacl.hash(encoded);
-    console.log('Hashed type:', hashed.constructor.name);
-    console.log('Hashed length:', hashed.length);
-    
-    const seed = hashed.slice(0, 32);
-    console.log('Seed type:', seed.constructor.name);
-    console.log('Seed length:', seed.length);
-    console.log('Is Uint8Array?', seed instanceof Uint8Array);
-    
-    if (!(seed instanceof Uint8Array)) {
-      throw new Error('Seed is not Uint8Array');
-    }
-    
-    if (seed.length !== 32) {
-      throw new Error('Seed length is not 32, it is: ' + seed.length);
-    }
-    
-    console.log('About to call nacl.box.keyPair.fromSecretKey...');
-    const keyPair = nacl.box.keyPair.fromSecretKey(seed);
-    console.log('✓ NaCl fallback successful!');
-    
-    return {
-      publicKey: encodeBase64(keyPair.publicKey),
-      secretKey: encodeBase64(keyPair.secretKey),
-    };
-  } catch (e) {
-    console.error('NaCl fallback failed:', e);
-    throw e;
-  }
+
+  const keyPair = nacl.box.keyPair.fromSecretKey(seed);
+
+  return {
+    publicKey: encodeBase64(keyPair.publicKey),
+    secretKey: encodeBase64(keyPair.secretKey),
+  };
 };
 
 // Encrypt message using shared secret
 export const encryptMessage = (message, sharedSecret) => {
   const nonce = nacl.randomBytes(nacl.box.nonceLength);
-  
+
   // Use TextEncoder directly for reliability
   const encoder = new TextEncoder();
   const messageUint8 = encoder.encode(message);
-  
+
   const encrypted = nacl.box.after(
     messageUint8,
     nonce,
     decodeBase64(sharedSecret)
   );
-  
+
   return {
     nonce: encodeBase64(nonce),
     ciphertext: encodeBase64(encrypted),
@@ -146,16 +75,15 @@ export const decryptMessage = (encryptedData, sharedSecret) => {
       decodeBase64(encryptedData.nonce),
       decodeBase64(sharedSecret)
     );
-    
+
     if (!decrypted) {
       throw new Error('Decryption failed');
     }
-    
+
     // Use TextDecoder directly for reliability
     const decoder = new TextDecoder();
     return decoder.decode(decrypted);
   } catch (error) {
-    console.error('Decryption error:', error);
     return null;
   }
 };
@@ -203,7 +131,6 @@ function getCryptoWorker() {
     };
 
     cryptoWorker.onerror = (error) => {
-      console.error('Crypto worker error:', error);
       // Notify all pending callbacks
       workerCallbacks.forEach((callbacks) => {
         if (callbacks.onError) {
@@ -286,7 +213,7 @@ export function encryptFile(fileData, sharedSecret, onProgress) {
 
     // Convert base64 file data to bytes
     const fileBytes = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
-    
+
     // For large files, encrypt in chunks
     const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
     const totalChunks = Math.ceil(fileBytes.length / CHUNK_SIZE);
@@ -299,7 +226,7 @@ export function encryptFile(fileData, sharedSecret, onProgress) {
 
       // Generate unique nonce per chunk
       const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
-      
+
       // Encrypt chunk
       const secretKey = typeof sharedSecret === 'string'
         ? Uint8Array.from(atob(sharedSecret), c => c.charCodeAt(0))
@@ -323,7 +250,6 @@ export function encryptFile(fileData, sharedSecret, onProgress) {
       totalSize: fileBytes.length,
     };
   } catch (error) {
-    console.error('Encryption failed:', error);
     throw error;
   }
 }
@@ -373,7 +299,6 @@ export function decryptFile(encryptedChunks, sharedSecret, onProgress) {
     // Convert to base64
     return uint8ArrayToBase64(combined);
   } catch (error) {
-    console.error('Decryption failed:', error);
     throw error;
   }
 }

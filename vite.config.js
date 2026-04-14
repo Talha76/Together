@@ -207,7 +207,8 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: true,
       open: true,
-      cors: true
+      cors: true,
+      headers: {},
     },
     
     // Preview server
@@ -218,7 +219,8 @@ export default defineConfig(({ mode }) => {
     
     // Optimizations
     optimizeDeps: {
-      include: ['react', 'react-dom', 'tweetnacl', 'tweetnacl-util', 'lucide-react']
+      include: ['react', 'react-dom', 'tweetnacl', 'tweetnacl-util', 'lucide-react'],
+      exclude: [],
     },
     
     // Define global constants

@@ -9,13 +9,13 @@ export const APP_CONFIG = {
 // Storage Keys
 export const STORAGE_KEYS = {
   USER_NAME: 'togetherUserName',
+  PHONE_NUMBER: 'togetherPhoneNumber',
+  SHARED_CODE: 'togetherSharedCode',
   MY_KEYS: 'togetherMyKeys',
   THEIR_PUBLIC_KEY: 'togetherTheirPublicKey',
   SHARED_SECRET: 'togetherSharedSecret',
-  KEY_EXCHANGE_METHOD: 'togetherKeyExchangeMethod',
-  MESSAGES: 'togetherMessages',
-  ROOM_ID: 'togetherRoomId',
-  LAST_ACTIVE: 'togetherLastActive'
+  KEY_EXCHANGE_METHOD: 'togetherKeyMethod',
+  RECENT_EMOJIS: 'togetherRecentEmojis',
 }
 
 // UI Steps
@@ -57,6 +57,12 @@ export const FIREBASE_CONFIG = {
   MAX_PARTICIPANTS: 2,
   MESSAGE_LIMIT: 100,
   TYPING_TIMEOUT: 3000 // 3 seconds
+}
+
+// Media Compression Configuration
+export const COMPRESSION_CONFIG = {
+  IMAGE_MAX_DIMENSION: 2048,
+  IMAGE_QUALITY: 0.8,
 }
 
 // Encryption Configuration
@@ -131,7 +137,7 @@ export const FEATURES = {
   VOICE_MESSAGES: false,
   VIDEO_CALLS: false,
   GROUP_CHAT: false,
-  MESSAGE_REACTIONS: false,
+  MESSAGE_REACTIONS: true,
   MESSAGE_EDITING: false,
   MESSAGE_DELETION: true,
   FILE_SHARING: true,
@@ -141,6 +147,8 @@ export const FEATURES = {
   NOTIFICATIONS: true,
   TYPING_INDICATORS: true
 }
+
+export const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '😢', '🔥']
 
 // Analytics Events (if you add analytics)
 export const ANALYTICS_EVENTS = {
@@ -172,6 +180,7 @@ export default {
   KEY_EXCHANGE_METHODS,
   FILE_LIMITS,
   FIREBASE_CONFIG,
+  COMPRESSION_CONFIG,
   ENCRYPTION_CONFIG,
   UI_MESSAGES,
   ANIMATION,

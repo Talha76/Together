@@ -1,13 +1,15 @@
 // src/components/CodeSetupScreen.jsx
 import { Key } from 'lucide-react';
 
-export default function CodeSetupScreen({ 
-  userName, 
-  sharedCode, 
-  onUserNameChange, 
-  onSharedCodeChange, 
+export default function CodeSetupScreen({
+  userName,
+  phoneNumber,
+  sharedCode,
+  onUserNameChange,
+  onPhoneNumberChange,
+  onSharedCodeChange,
   onConnect,
-  onBack 
+  onBack
 }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-50 to-pink-100 flex items-center justify-center p-4">
@@ -28,6 +30,19 @@ export default function CodeSetupScreen({
               placeholder="Enter your name"
               value={userName}
               onChange={(e) => onUserNameChange(e.target.value)}
+              className="w-full px-4 py-3 border-2 border-pink-200 rounded-xl focus:outline-none focus:border-pink-400"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Phone Number
+            </label>
+            <input
+              type="tel"
+              placeholder="Enter your phone number"
+              value={phoneNumber}
+              onChange={(e) => onPhoneNumberChange(e.target.value)}
               className="w-full px-4 py-3 border-2 border-pink-200 rounded-xl focus:outline-none focus:border-pink-400"
             />
           </div>

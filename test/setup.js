@@ -12,23 +12,33 @@ afterEach(() => {
   }
 })
 
-// Mock Web Crypto API
+// Mock Web Crypto API with deterministic LCG for reproducible tests
+const lcgNext = (seed) => (seed * 1103515245 + 12345) & 0x7fffffff
+
+// Persistent seed across getRandomValues calls so each call produces distinct bytes
+let randomSeed = 42
+
 if (typeof window !== 'undefined' && typeof window.crypto === 'undefined') {
   Object.defineProperty(window, 'crypto', {
     value: {
       getRandomValues: (arr) => {
         for (let i = 0; i < arr.length; i++) {
-          arr[i] = Math.floor(Math.random() * 256)
+          randomSeed = lcgNext(randomSeed)
+          arr[i] = (randomSeed >>> 16) & 0xff
         }
         return arr
       },
       subtle: {
         digest: async (algorithm, data) => {
-          // Mock SHA-256 hash
-          const hash = new Uint8Array(32)
           const dataArray = new Uint8Array(data)
+          const hash = new Uint8Array(32)
+          let seed = dataArray.length
+          for (let i = 0; i < Math.min(4, dataArray.length); i++) {
+            seed = (seed << 8) | dataArray[i]
+          }
           for (let i = 0; i < 32; i++) {
-            hash[i] = dataArray[i % dataArray.length]
+            seed = lcgNext(seed)
+            hash[i] = (seed >>> 16) & 0xff
           }
           return hash.buffer
         }

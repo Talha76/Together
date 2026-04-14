@@ -6,8 +6,10 @@ import CodeSetupScreen from './CodeSetupScreen'
 describe('CodeSetupScreen', () => {
   const defaultProps = {
     userName: '',
+    phoneNumber: '',
     sharedCode: '',
     onUserNameChange: vi.fn(),
+    onPhoneNumberChange: vi.fn(),
     onSharedCodeChange: vi.fn(),
     onConnect: vi.fn(),
     onBack: vi.fn()
@@ -22,12 +24,10 @@ describe('CodeSetupScreen', () => {
 
   it('should display input fields', () => {
     render(<CodeSetupScreen {...defaultProps} />)
-    
-    const nameInput = screen.getByPlaceholderText('Enter your name')
-    const codeInput = screen.getByPlaceholderText('Min 6 characters')
-    
-    expect(nameInput).toBeInTheDocument()
-    expect(codeInput).toBeInTheDocument()
+
+    expect(screen.getByPlaceholderText('Enter your name')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Enter your phone number')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Min 6 characters')).toBeInTheDocument()
   })
 
   it('should show security information', () => {

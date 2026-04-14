@@ -3,20 +3,27 @@ import React, { useState, useEffect } from 'react';
 import WelcomeScreen from './components/WelcomeScreen';
 import CodeSetupScreen from './components/CodeSetupScreen';
 import ChatScreen from './components/ChatScreen';
+import ToastContainer from './components/Toast';
 import { useEncryption } from './hooks/useEncryption';
 import { useMessages } from './hooks/useMessages';
-import { megaConfig } from './config';
-import { generateUserIdentifier } from './userIdentifier';
+import { useToast } from './hooks/useToast';
+import { STORAGE_KEYS } from './constants';
 
 export default function TogetherChat() {
   const [userName, setUserName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [userIdentifier, setUserIdentifier] = useState('');
   const [sharedCode, setSharedCode] = useState('');
   const [step, setStep] = useState('welcome');
-  const [encryptionStatus, setEncryptionStatus] = useState('Not encrypted');
 
+  const { toasts, showToast, dismissToast } = useToast();
   const encryption = useEncryption();
-  const { messages, addMessage, downloadFile, participantCount, roomError } = useMessages(
+  const {
+    messages, addMessage, downloadFile, participantCount, roomError,
+    partnerTyping, partnerStatus, setTypingStatus,
+    addReaction, removeReaction, deleteMessage, userIdentifier: currentUserId,
+    chatRoomId,
+  } = useMessages(
     encryption.sharedSecret,
     encryption.encryptMessage,
     encryption.decryptMessage,
@@ -24,72 +31,74 @@ export default function TogetherChat() {
   );
 
   useEffect(() => {
-    const savedUserName = localStorage.getItem('togetherUserName');
-    const savedUserIdentifier = localStorage.getItem('togetherUserIdentifier');
-    const savedSharedCode = localStorage.getItem('togetherSharedCode');
-    
-    if (savedUserName && savedUserIdentifier && savedSharedCode && encryption.isEncrypted) {
+    const savedUserName = localStorage.getItem(STORAGE_KEYS.USER_NAME);
+    const savedPhoneNumber = localStorage.getItem(STORAGE_KEYS.PHONE_NUMBER);
+    const savedSharedCode = localStorage.getItem(STORAGE_KEYS.SHARED_CODE);
+
+    if (savedUserName && savedPhoneNumber && savedSharedCode && encryption.isEncrypted) {
       setUserName(savedUserName);
-      setUserIdentifier(savedUserIdentifier);
+      setPhoneNumber(savedPhoneNumber);
+      setUserIdentifier(savedPhoneNumber);
       setSharedCode(savedSharedCode);
       setStep('chat');
-      setEncryptionStatus('🔒 E2E Encrypted');
     }
   }, [encryption.isEncrypted]);
 
   useEffect(() => {
     if (roomError && step === 'chat') {
-      alert(roomError + '\n\nYou will be disconnected.');
+      showToast(roomError, 'error', 5000);
       handleDisconnect();
     }
   }, [roomError, step]);
 
   const handleSetupWithCode = async () => {
-    if (!userName.trim() || !sharedCode.trim()) {
-      alert('Please enter your name and a shared code');
+    if (!userName.trim() || !phoneNumber.trim() || !sharedCode.trim()) {
+      showToast('Please enter your name, phone number, and a shared code', 'error');
       return;
     }
-    
+
+    const digitsOnly = phoneNumber.replace(/\D/g, '');
+    if (digitsOnly.length < 7) {
+      showToast('Please enter a valid phone number (at least 7 digits)', 'error');
+      return;
+    }
+
     const result = await encryption.setupWithCode(sharedCode);
-    
+
     if (!result.success) {
-      alert(result.error);
+      showToast(result.error, 'error');
       return;
     }
-    
-    // Generate unique user identifier from name + code hash
-    const identifier = await generateUserIdentifier(userName, sharedCode);
-    
-    localStorage.setItem('togetherUserName', userName);
-    localStorage.setItem('togetherUserIdentifier', identifier);
-    localStorage.setItem('togetherSharedCode', sharedCode);
-    localStorage.setItem('togetherMyKeys', JSON.stringify(result.keys));
-    localStorage.setItem('togetherTheirPublicKey', result.keys.publicKey);
-    localStorage.setItem('togetherSharedSecret', result.secret);
-    localStorage.setItem('togetherKeyMethod', 'code');
-    
-    setUserIdentifier(identifier);
+
+    localStorage.setItem(STORAGE_KEYS.USER_NAME, userName);
+    localStorage.setItem(STORAGE_KEYS.PHONE_NUMBER, phoneNumber);
+    localStorage.setItem(STORAGE_KEYS.SHARED_CODE, sharedCode);
+    localStorage.setItem(STORAGE_KEYS.MY_KEYS, JSON.stringify(result.keys));
+    localStorage.setItem(STORAGE_KEYS.THEIR_PUBLIC_KEY, result.keys.publicKey);
+    localStorage.setItem(STORAGE_KEYS.SHARED_SECRET, result.secret);
+    localStorage.setItem(STORAGE_KEYS.KEY_EXCHANGE_METHOD, 'code');
+
+    setUserIdentifier(phoneNumber);
     setStep('chat');
-    setEncryptionStatus('🔒 E2E Encrypted');
   };
 
   const handleDisconnect = () => {
     encryption.clearEncryptionData();
-    localStorage.removeItem('togetherUserIdentifier');
-    localStorage.removeItem('togetherSharedCode');
+    localStorage.removeItem(STORAGE_KEYS.PHONE_NUMBER);
+    localStorage.removeItem(STORAGE_KEYS.SHARED_CODE);
     setStep('welcome');
     setUserName('');
+    setPhoneNumber('');
     setUserIdentifier('');
     setSharedCode('');
-    setEncryptionStatus('Not encrypted');
   };
 
-  const handleSendMessage = async (inputText, selectedFile, onProgress, abortSignal) => {
-    const result = await addMessage(userName, inputText, selectedFile, onProgress, abortSignal);
+  const handleSendMessage = async (inputText, selectedFile, onProgress, abortSignal, replyToMessage = null) => {
+    const result = await addMessage(userName, inputText, selectedFile, onProgress, abortSignal, replyToMessage);
     
     // Don't show alert for cancellations
     if (!result.success && !result.cancelled && result.error) {
-      alert(result.error);
+      showToast(result.error, 'error');
     }
     
     return result;
@@ -99,7 +108,7 @@ export default function TogetherChat() {
     try {
       await downloadFile(fileMetadata, onProgress);
     } catch (error) {
-      alert('Failed to download file: ' + error.message);
+      showToast('Failed to download file: ' + error.message, 'error');
     }
   };
 
@@ -123,15 +132,17 @@ export default function TogetherChat() {
 
   return (
     <>
-      <input type="hidden" id="mega-password" value={megaConfig.password} />
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       {step === 'welcome' && (
         <WelcomeScreen onGetStarted={() => setStep('code-setup')} />
       )}
       {step === 'code-setup' && (
         <CodeSetupScreen
           userName={userName}
+          phoneNumber={phoneNumber}
           sharedCode={sharedCode}
           onUserNameChange={setUserName}
+          onPhoneNumberChange={setPhoneNumber}
           onSharedCodeChange={setSharedCode}
           onConnect={handleSetupWithCode}
           onBack={() => setStep('welcome')}
@@ -140,12 +151,21 @@ export default function TogetherChat() {
       {step === 'chat' && !roomError && (
         <ChatScreen
           userName={userName}
-          encryptionStatus={encryptionStatus}
+          encryptionStatus={encryption.isEncrypted ? '🔒 E2E Encrypted' : 'Not encrypted'}
           participantCount={participantCount}
           messages={messages}
           onSendMessage={handleSendMessage}
           onDownloadFile={handleDownloadFile}
           onDisconnect={handleDisconnect}
+          showToast={showToast}
+          partnerTyping={partnerTyping}
+          partnerStatus={partnerStatus}
+          onTypingChange={setTypingStatus}
+          onAddReaction={addReaction}
+          onRemoveReaction={removeReaction}
+          onDeleteMessage={deleteMessage}
+          currentUserId={currentUserId}
+          chatRoomId={chatRoomId}
         />
       )}
     </>

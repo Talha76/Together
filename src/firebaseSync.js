@@ -1,26 +1,17 @@
-import { db } from './firebase';  // ✅ Import from firebase.js
+import { db } from './firebase';
 import {
   collection,
   addDoc,
+  doc,
+  updateDoc,
+  deleteField,
   onSnapshot,
   query,
   orderBy,
   limit,
   serverTimestamp,
 } from 'firebase/firestore';
-
-// Utility: Convert Uint8Array to base64 (avoiding stack overflow)
-function uint8ArrayToBase64(uint8Array) {
-  const chunkSize = 8192;
-  const chunks = [];
-  
-  for (let i = 0; i < uint8Array.length; i += chunkSize) {
-    const chunk = uint8Array.subarray(i, i + chunkSize);
-    chunks.push(String.fromCharCode.apply(null, chunk));
-  }
-  
-  return btoa(chunks.join(''));
-}
+import { uint8ArrayToBase64 } from './utils/encoding';
 
 // Generate unique chat room ID from encryption key
 export function getChatRoomId(encryptionKey) {
@@ -43,37 +34,6 @@ export function getChatRoomId(encryptionKey) {
   return keyB64.substring(0, 32).replace(/[^a-zA-Z0-9]/g, '');
 }
 
-// Send encrypted message to Firestore
-export async function sendMessage(chatRoomId, encryptedMessage, encryptedFile = null, senderId = null) {
-  try {
-    const messageData = {
-      content: {
-        ciphertext: encryptedMessage.ciphertext,
-        nonce: encryptedMessage.nonce
-      },
-      senderId: senderId || 'unknown',
-      timestamp: serverTimestamp(),
-      createdAt: Date.now(),
-    };
-
-    if (encryptedFile) {
-      messageData.file = {
-        data: encryptedFile.data,
-        nonce: encryptedFile.nonce,
-        name: encryptedFile.name,
-        type: encryptedFile.type,
-        size: encryptedFile.size,
-      };
-    }
-
-    await addDoc(collection(db, 'chats', chatRoomId, 'messages'), messageData);
-    return { success: true };
-  } catch (error) {
-    console.error('Error sending message:', error);
-    return { success: false, error };
-  }
-}
-
 // Listen to real-time messages
 export function subscribeToMessages(chatRoomId, onMessagesUpdate) {
   const messagesRef = collection(db, 'chats', chatRoomId, 'messages');
@@ -94,7 +54,6 @@ export function subscribeToMessages(chatRoomId, onMessagesUpdate) {
       onMessagesUpdate(messages.reverse());
     },
     (error) => {
-      console.error('Error listening to messages:', error);
     }
   );
 
@@ -106,7 +65,8 @@ export async function sendMessageWithFile(
   chatRoomId,
   encryptedMessage,
   fileMetadata,
-  senderId = null
+  senderId = null,
+  replyTo = null
 ) {
   try {
     const messageData = {
@@ -130,10 +90,54 @@ export async function sendMessageWithFile(
       };
     }
 
+    if (replyTo) {
+      messageData.replyTo = replyTo;
+    }
+
     await addDoc(collection(db, 'chats', chatRoomId, 'messages'), messageData);
     return { success: true };
   } catch (error) {
-    console.error('Error sending message:', error);
+    return { success: false, error };
+  }
+}
+
+// Add emoji reaction to a message
+export async function addReaction(chatRoomId, messageId, emoji, userId) {
+  try {
+    const msgRef = doc(db, 'chats', chatRoomId, 'messages', messageId);
+    await updateDoc(msgRef, {
+      [`reactions.${userId}`]: emoji,
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error };
+  }
+}
+
+// Remove reaction from a message
+export async function removeReaction(chatRoomId, messageId, userId) {
+  try {
+    const msgRef = doc(db, 'chats', chatRoomId, 'messages', messageId);
+    await updateDoc(msgRef, {
+      [`reactions.${userId}`]: deleteField(),
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error };
+  }
+}
+
+// Soft-delete a message
+export async function deleteMessage(chatRoomId, messageId) {
+  try {
+    const msgRef = doc(db, 'chats', chatRoomId, 'messages', messageId);
+    await updateDoc(msgRef, {
+      deleted: true,
+      content: { ciphertext: '', nonce: '' },
+      file: deleteField(),
+    });
+    return { success: true };
+  } catch (error) {
     return { success: false, error };
   }
 }

@@ -136,59 +136,32 @@ describe('useEncryption Hook', () => {
     expect(localStorage.getItem('togetherMyKeys')).toBeNull()
   })
 
-  it('should encrypt messages', async () => {
+  it('should encrypt and decrypt messages', async () => {
     const { result } = renderHook(() => useEncryption())
-    
-    expect(result.current).toBeDefined()
-    expect(result.current).not.toBeNull()
-    
-    // Setup with code - this generates keys and shared secret properly
-    await act(async () => {
-      const setupResult = await result.current.setupWithCode('test-code-for-encryption')
-      // Verify setup succeeded
-      expect(setupResult.success).toBe(true)
-    })
-    
-    // Wait for state to update
-    await waitFor(() => {
-      expect(result.current.sharedSecret).toBeTruthy()
-    })
-    
-    // Now try encryption
-    const encrypted = result.current.encryptMessage('Hello World')
-    
-    expect(encrypted).toBeDefined()
-    expect(encrypted).not.toBeNull()
-    expect(encrypted).toHaveProperty('nonce')
-    expect(encrypted).toHaveProperty('ciphertext')
-  })
 
-  it('should decrypt messages', async () => {
-    const { result } = renderHook(() => useEncryption())
-    
-    expect(result.current).toBeDefined()
-    expect(result.current).not.toBeNull()
-    
-    // Setup with code
+    let setupResult
     await act(async () => {
-      const setupResult = await result.current.setupWithCode('test-code-for-decryption')
-      expect(setupResult.success).toBe(true)
+      setupResult = await result.current.setupWithCode('test-code-for-encryption')
     })
-    
-    // Wait for state to update
+
+    expect(setupResult.success).toBe(true)
+    expect(setupResult.keys).toBeDefined()
+    expect(setupResult.secret).toBeDefined()
+
     await waitFor(() => {
       expect(result.current.sharedSecret).toBeTruthy()
+      expect(result.current.isEncrypted).toBe(true)
     })
-    
+
+    expect(result.current.sharedSecret).toBe(setupResult.secret)
+
     const message = 'Test Message'
     const encrypted = result.current.encryptMessage(message)
-    
-    // Verify encryption worked
-    expect(encrypted).toBeDefined()
-    expect(encrypted).not.toBeNull()
-    
+
+    expect(encrypted).toHaveProperty('nonce')
+    expect(encrypted).toHaveProperty('ciphertext')
+
     const decrypted = result.current.decryptMessage(encrypted)
-    
     expect(decrypted).toBe(message)
   })
 
@@ -209,13 +182,11 @@ describe('useEncryption Hook', () => {
     expect(result.current).toBeDefined()
     expect(result.current).not.toBeNull()
     
-    // Setup with code
     await act(async () => {
       const setupResult = await result.current.setupWithCode('test-code-for-bad-decrypt')
       expect(setupResult.success).toBe(true)
     })
     
-    // Wait for state to update
     await waitFor(() => {
       expect(result.current.sharedSecret).toBeTruthy()
     })
@@ -223,8 +194,6 @@ describe('useEncryption Hook', () => {
     const badData = { nonce: 'bad', ciphertext: 'bad' }
     const decrypted = result.current.decryptMessage(badData)
     
-    // The hook's decryptMessage catches errors and returns '[Decryption failed]'
-    // But if it returns null, that's also acceptable as an error state
     expect(decrypted === '[Decryption failed]' || decrypted === null).toBe(true)
   })
 
@@ -238,7 +207,6 @@ describe('useEncryption Hook', () => {
       await result.current.setupWithCode('file-encrypt-test')
     })
     
-    // Wait for shared secret
     await waitFor(() => {
       expect(result.current.sharedSecret).toBeTruthy()
     })
@@ -260,7 +228,6 @@ describe('useEncryption Hook', () => {
       await result.current.setupWithCode('file-decrypt-test')
     })
     
-    // Wait for shared secret
     await waitFor(() => {
       expect(result.current.sharedSecret).toBeTruthy()
     })

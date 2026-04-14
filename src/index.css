@@ -60,14 +60,6 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Prevent text selection on touch */
-.no-select {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-}
-
 /* Smooth scrolling */
 .smooth-scroll {
   -webkit-overflow-scrolling: touch;
@@ -122,10 +114,7 @@ a:active {
   opacity: 0.7;
 }
 
-/* Fix for iOS momentum scrolling */
-.ios-scroll {
-  -webkit-overflow-scrolling: touch;
-}
+
 
 /* Disable double-tap zoom */
 * {
@@ -208,32 +197,33 @@ html {
   transform: scale(0.95);
 }
 
-/* Smooth transitions */
-.transition-smooth {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* Toast animations */
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* Message bubble animations */
-.message-bubble {
-  animation: fadeIn 0.2s ease-out;
+.toast-enter {
+  animation: slideInDown 0.3s ease-out;
+}
+
+/* Typing indicator */
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-4px); }
+}
+
+.typing-dot {
+  animation: typingBounce 1.4s infinite ease-in-out;
 }
 
 /* Loading skeleton */
-@keyframes shimmer {
-  0% {
-    background-position: -1000px 0;
-  }
-  100% {
-    background-position: 1000px 0;
-  }
-}
-
-.skeleton {
-  animation: shimmer 2s infinite;
-  background: linear-gradient(to right, #f0f0f0 4%, #e0e0e0 25%, #f0f0f0 36%);
-  background-size: 1000px 100%;
-}
-
 /* PWA fullscreen mode */
 @media (display-mode: standalone) {
   body {
@@ -262,14 +252,7 @@ html {
   }
 }
 
-/* Tablet optimizations */
-@media (min-width: 768px) {
-  /* Limit chat width on tablets */
-  .chat-container {
-    max-width: 768px;
-    margin: 0 auto;
-  }
-}
+
 
 /* High DPI screens */
 @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
