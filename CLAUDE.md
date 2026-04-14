@@ -1,6 +1,6 @@
 # Together Chat
 
-Privacy-first, end-to-end encrypted messaging PWA for couples. React + Vite + Firebase + TweetNaCl.
+Privacy-first, end-to-end encrypted messaging PWA for couples. React Native + Expo + Firebase + TweetNaCl.
 
 ## graphify
 

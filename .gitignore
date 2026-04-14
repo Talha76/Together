@@ -1,272 +1,41 @@
-# Dependencies
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
 node_modules/
-.pnp
-.pnp.js
 
-# Testing
-coverage/
-*.test.js.snap
-.nyc_output/
-
-# Production Build
+# Expo
+.expo/
 dist/
-dev-dist/
-dist-ssr/
-build/
-.vercel/
-.netlify/
+web-build/
+expo-env.d.ts
 
-# Environment Variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
 .env*.local
 
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# Editor Directories
-.vscode/
-!.vscode/extensions.json
-!.vscode/settings.json
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-*.sublime-project
-*.sublime-workspace
-
-# OS Files
-Thumbs.db
-Desktop.ini
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Temporary Files
-*.tmp
-*.temp
-.cache/
-.parcel-cache/
-.vite/
-
-# Debug Files
-*.log
-*.pid
-*.seed
-*.pid.lock
-
-# Runtime Data
-pids/
-*.pid
-*.seed
-*.pid.lock
-
-# Firebase
-.firebase/
-.firebaserc
-firebase-debug.log*
-firestore-debug.log*
-ui-debug.log*
-
-# Service Worker
-sw.js
-workbox-*.js
-
-# PWA
-manifest.webmanifest
-
-# Local Development
-.local
-*.local
-
-# Backup Files
-*.bak
-*.backup
-*-old
-*-backup
-
-# Lock Files (Keep package-lock.json)
-# yarn.lock
-# pnpm-lock.yaml
-
-# Security
-*.key
-*.pem
-*.cert
-*.crt
-
-# Generated Files
-*.css.map
-*.js.map
-
-# IDE
-*.iml
-.idea/
-.vscode/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Mac
-.DS_Store
-.AppleDouble
-.LSOverride
-._*
-
-# Windows
-Thumbs.db
-Thumbs.db:encryptable
-ehthumbs.db
-ehthumbs_vista.db
-Desktop.ini
-
-# Linux
-*~
-.fuse_hidden*
-.directory
-.Trash-*
-
-# Mobile Development (if you add Capacitor)
-android/.gradle
-android/build
-android/app/build
-android/local.properties
-android/.idea
-android/captures
-android/release-key.keystore
-android/gradle.properties
-
-ios/App/Pods
-ios/App/*.xcworkspace
-ios/App/App.xcodeproj/xcuserdata
-ios/App/App.xcodeproj/project.xcworkspace/xcuserdata
-
-# Documentation Build
-docs/.vitepress/cache
-docs/.vitepress/dist
-
-# Misc
-*.stackdump
-.sass-cache/
-*.css.map
-*.sass.map
-*.scss.map
-
-# Sentry
-.sentryclirc
-
-# Storybook
-storybook-static/
-
-# TypeScript
+# typescript
 *.tsbuildinfo
 
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Optional stylelint cache
-.stylelintcache
-
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variable files
-.env.development
-.env.test
-.env.production
-
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
-
-# Next.js build output (if migrating)
-.next
-out
-
-# Nuxt.js build / generate output (if migrating)
-.nuxt
-dist
-
-# Gatsby files (if migrating)
-.cache/
-public
-
-# vuepress build output (if migrating)
-.vuepress/dist
-
-# vuepress v2.x temp and cache directory
-.temp
-
-# Docusaurus cache and generated files (if adding docs)
-.docusaurus
-
-# Serverless directories
-.serverless/
-
-# FuseBox cache
-.fusebox/
-
-# DynamoDB Local files
-.dynamodb/
-
-# TernJS port file
-.tern-port
-
-# Stores VSCode versions used for testing VSCode extensions
-.vscode-test
-
-# yarn v2
-.yarn/cache
-.yarn/unplugged
-.yarn/build-state.yml
-.yarn/install-state.gz
-.pnp.*
-
-# Turborepo
-.turbo
-
-# Bundle Analyzer
-stats.html
-report.html
-
-# Lighthouse Reports
-lighthouse-report.html
-lighthouse-*.json
-
-# Performance
-*.cpuprofile
-
-# Webpack
-.webpack/
-
-# Custom
-/temp
-/tmp
-/local
+# generated native folders
+/ios
+/android
