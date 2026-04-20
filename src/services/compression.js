@@ -1,7 +1,7 @@
 // src/services/compression.js
 // Native media compression using expo-image-manipulator (images) and expo-av (video info).
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { COMPRESSION_CONFIG } from '../constants';
 
 export function isCompressibleMedia(mimeType) {
