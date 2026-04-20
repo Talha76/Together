@@ -1,0 +1,25 @@
+# graphify ignore — gitignore semantics
+
+# graphify own output
+graphify-out/
+
+# lock files
+*.lock
+bun.lock
+yarn.lock
+package-lock.json
+
+# expo / rn build artifacts
+.expo/
+.expo-shared/
+
+# config/manifest JSON — not useful as graph nodes
+app.json
+package.json
+
+# scripts that are dev tooling, not app logic
+# (comment out if you want MEGA session script in graph)
+# scripts/
+
+# assets — images already processed; re-run generates noise
+# assets/
