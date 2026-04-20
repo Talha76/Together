@@ -249,13 +249,16 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
   }, [sharedSecret, chatRoomId, encryptMessage, roomError, canAccessRoom, userIdentifier]);
 
   // Download file → save + share
-  const downloadFile = useCallback(async (fileMetadata, onProgress) => {
+  const downloadFile = useCallback(async (fileMetadata, onProgress, abortSignal) => {
     if (!canAccessRoom) throw new Error('No room access');
+    if (!fileMetadata?.megaLink) throw new Error('No file link');
+    if (abortSignal?.aborted) throw new Error('Download cancelled');
 
     const downloadResult = await megaStorage.downloadFile(fileMetadata.megaLink, (p) => {
       if (onProgress) onProgress(p * 0.5);
-    });
+    }, abortSignal);
 
+    if (downloadResult.cancelled) throw new Error('Download cancelled');
     if (!downloadResult.success) throw new Error('Download failed: ' + downloadResult.error);
 
     const encryptedFileJSON = Buffer.from(downloadResult.data, 'base64').toString('utf-8');
@@ -264,6 +267,8 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
     if (!Array.isArray(encryptedFileData.chunks) || encryptedFileData.chunks.length === 0) {
       throw new Error('Invalid file payload');
     }
+
+    if (abortSignal?.aborted) throw new Error('Download cancelled');
 
     const decryptedData = await decryptFileAsync(encryptedFileData.chunks, sharedSecret, (p) => {
       if (onProgress) onProgress(50 + (p * 0.5));
