@@ -45,5 +45,8 @@ yarn-error.*
 # graphify generated output
 graphify-out/
 
+# worktrees
+.worktrees/
+
 # logs
 *.log
