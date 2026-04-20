@@ -261,12 +261,11 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
     const encryptedFileJSON = Buffer.from(downloadResult.data, 'base64').toString('utf-8');
     const encryptedFileData = JSON.parse(encryptedFileJSON);
 
-    let decryptedData;
-    const allChunks = encryptedFileData.isChunked && encryptedFileData.chunks.length > 1
-      ? encryptedFileData.chunks.flatMap(c => c.chunks || [c])
-      : (encryptedFileData.chunks || [encryptedFileData])[0]?.chunks || encryptedFileData.chunks || [encryptedFileData];
+    if (!Array.isArray(encryptedFileData.chunks) || encryptedFileData.chunks.length === 0) {
+      throw new Error('Invalid file payload');
+    }
 
-    decryptedData = await decryptFileAsync(allChunks, sharedSecret, (p) => {
+    const decryptedData = await decryptFileAsync(encryptedFileData.chunks, sharedSecret, (p) => {
       if (onProgress) onProgress(50 + (p * 0.5));
     });
 
