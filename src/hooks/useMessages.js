@@ -269,15 +269,28 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
       if (onProgress) onProgress(50 + (p * 0.5));
     });
 
-    // Write to temp file + share
-    const filePath = FileSystem.cacheDirectory + fileMetadata.name;
+    const downloadsDir = FileSystem.documentDirectory + 'downloads/';
+    const dirInfo = await FileSystem.getInfoAsync(downloadsDir);
+    if (!dirInfo.exists) {
+      await FileSystem.makeDirectoryAsync(downloadsDir, { intermediates: true });
+    }
+
+    const dot = fileMetadata.name.lastIndexOf('.');
+    const stem = dot > 0 ? fileMetadata.name.slice(0, dot) : fileMetadata.name;
+    const ext = dot > 0 ? fileMetadata.name.slice(dot) : '';
+    let filePath = downloadsDir + fileMetadata.name;
+    if ((await FileSystem.getInfoAsync(filePath)).exists) {
+      filePath = `${downloadsDir}${stem}_${Date.now()}${ext}`;
+    }
+
     await FileSystem.writeAsStringAsync(filePath, decryptedData, { encoding: FileSystem.EncodingType.Base64 });
 
     if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(filePath);
+      await Sharing.shareAsync(filePath, { mimeType: fileMetadata.type, dialogTitle: fileMetadata.name });
     }
 
     if (onProgress) onProgress(100);
+    return { path: filePath };
   }, [sharedSecret, canAccessRoom]);
 
   const handleAddReaction = useCallback(async (messageId, emoji) => {
