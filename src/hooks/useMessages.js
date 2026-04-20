@@ -275,10 +275,12 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
       await FileSystem.makeDirectoryAsync(downloadsDir, { intermediates: true });
     }
 
-    const dot = fileMetadata.name.lastIndexOf('.');
-    const stem = dot > 0 ? fileMetadata.name.slice(0, dot) : fileMetadata.name;
-    const ext = dot > 0 ? fileMetadata.name.slice(dot) : '';
-    let filePath = downloadsDir + fileMetadata.name;
+    const rawName = (fileMetadata.name || 'file').split(/[\\/]/).pop() || 'file';
+    const safeName = rawName.replace(/^\.+/, '').replace(/[^\w.\- ]/g, '_') || 'file';
+    const dot = safeName.lastIndexOf('.');
+    const stem = dot > 0 ? safeName.slice(0, dot) : safeName;
+    const ext = dot > 0 ? safeName.slice(dot) : '';
+    let filePath = downloadsDir + safeName;
     if ((await FileSystem.getInfoAsync(filePath)).exists) {
       filePath = `${downloadsDir}${stem}_${Date.now()}${ext}`;
     }
@@ -286,7 +288,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
     await FileSystem.writeAsStringAsync(filePath, decryptedData, { encoding: FileSystem.EncodingType.Base64 });
 
     if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(filePath, { mimeType: fileMetadata.type, dialogTitle: fileMetadata.name });
+      await Sharing.shareAsync(filePath, { mimeType: fileMetadata.type, dialogTitle: safeName });
     }
 
     if (onProgress) onProgress(100);
