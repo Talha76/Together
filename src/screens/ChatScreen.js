@@ -249,12 +249,12 @@ export default function ChatScreen({ navigation }) {
             style={styles.textInput}
             multiline
             maxLength={5000}
-            editable={!isUploading && canAccessRoom}
+            editable={!isUploading}
           />
           <TouchableOpacity
             onPress={handleSend}
-            disabled={!inputText.trim() || isUploading}
-            style={[styles.sendBtn, (!inputText.trim() || isUploading) && styles.sendBtnDisabled]}
+            disabled={!inputText.trim() || isUploading || !canAccessRoom}
+            style={[styles.sendBtn, (!inputText.trim() || isUploading || !canAccessRoom) && styles.sendBtnDisabled]}
           >
             <Text style={styles.sendIcon}>➤</Text>
           </TouchableOpacity>

@@ -1,6 +1,13 @@
 // Run with: node scripts/mega-session.js
 // Extracts MEGA session ID + root handle, prints env vars to add to .env
 // Uses megajs (Node.js only) — run on dev machine, not on device
+
+// Force IPv4: MEGA's IPv6 path is unroutable from some networks and
+// undici's Happy Eyeballs stalls on it until ETIMEDOUT ("fetch failed").
+require('dns').setDefaultResultOrder('ipv4first');
+const { Agent, setGlobalDispatcher } = require('undici');
+setGlobalDispatcher(new Agent({ connect: { family: 4 } }));
+
 const { Storage } = require('megajs');
 require('dotenv').config();
 

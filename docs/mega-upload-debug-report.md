@@ -2,6 +2,8 @@
 
 Full trace of every problem hit while porting MEGA file upload from PWA to React Native (Expo).
 
+> **Historical note (2026-04-21):** Problems 1–4 describe the abandoned megajs-browser-build path. That approach was dropped in favor of the raw MEGA REST API in `src/services/megaStorage.js`. `src/polyfills.js` (referenced in Problem 2) has been deleted — consumers now import `Buffer` directly from the `buffer` npm package, and `crypto.getRandomValues` is provided by Expo/React Native native shims. Kept for historical context only.
+
 ---
 
 ## Problem 1: megajs library won't work in React Native

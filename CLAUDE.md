@@ -69,10 +69,6 @@ Firestore only — no Firebase Auth, no Firebase Storage. Two collections:
 
 `ChatRoomManager` enforces max 2 participants via heartbeat (30s interval, 60s timeout).
 
-### Polyfills
-
-`src/polyfills.js` **must be the first import** in `index.js`. It installs `globalThis.Buffer` and a fallback `crypto.getRandomValues` needed by TweetNaCl and the MEGA service throughout.
-
 ### Import path note
 
 Use `expo-file-system/legacy` (not `expo-file-system`) everywhere — the legacy API exposes `uploadAsync` and `writeAsStringAsync` which the file pipeline depends on.
