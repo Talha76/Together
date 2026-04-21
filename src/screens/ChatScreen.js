@@ -18,8 +18,11 @@ export default function ChatScreen({ navigation }) {
   const [isUploading, setIsUploading] = useState(false);
   const [stageProgress, setStageProgress] = useState({});
   const [activeStage, setActiveStage] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   const flatListRef = useRef(null);
   const uploadController = useRef(null);
+  const downloadController = useRef(null);
 
   const { sharedSecret, encryptMessage, decryptMessage, clearEncryptionData, loading: encLoading } = useEncryption();
 
@@ -33,7 +36,7 @@ export default function ChatScreen({ navigation }) {
   }, []);
 
   const {
-    messages, addMessage, chatRoomId, partnerTyping, partnerStatus,
+    messages, addMessage, downloadFile, chatRoomId, partnerTyping, partnerStatus,
     canAccessRoom, roomError, setTypingStatus, addReaction, deleteMessage,
   } = useMessages(sharedSecret, encryptMessage, decryptMessage, userIdentifier);
 
@@ -87,6 +90,25 @@ export default function ChatScreen({ navigation }) {
     }
   }, [userName, addMessage]);
 
+  const handleDownload = useCallback(async (message) => {
+    if (downloadingId || !message.file?.megaLink) return;
+    const controller = new AbortController();
+    downloadController.current = controller;
+    setDownloadingId(message.id);
+    setDownloadProgress(0);
+    try {
+      await downloadFile(message.file, (p) => setDownloadProgress(Math.round(p)), controller.signal);
+    } catch (e) {
+      if (e.message !== 'Download cancelled') {
+        Alert.alert('Download failed', e.message);
+      }
+    } finally {
+      setDownloadingId(null);
+      setDownloadProgress(0);
+      downloadController.current = null;
+    }
+  }, [downloadingId, downloadFile]);
+
   const handleDisconnect = useCallback(async () => {
     Alert.alert('Disconnect', 'Leave this chat?', [
       { text: 'Cancel', style: 'cancel' },
@@ -109,12 +131,33 @@ export default function ChatScreen({ navigation }) {
           {item.deleted ? 'This message was deleted' : item.text}
         </Text>
         {item.file && (
-          <Text style={styles.fileInfo}>📎 {item.file.name} ({formatFileSize(item.file.size)})</Text>
+          <View style={styles.fileRow}>
+            <TouchableOpacity
+              onPress={() => handleDownload(item)}
+              disabled={!!downloadingId || !item.file.megaLink}
+            >
+              <Text style={[styles.fileInfo, isOwn && styles.fileInfoOwn]}>
+                {downloadingId === item.id ? `⬇ ${downloadProgress}%` : '📎'}{' '}
+                {item.file.name} ({formatFileSize(item.file.size)})
+              </Text>
+              {downloadingId !== item.id && (
+                <Text style={[styles.downloadHint, isOwn && styles.downloadHintOwn]}>Tap to save</Text>
+              )}
+            </TouchableOpacity>
+            {downloadingId === item.id && (
+              <TouchableOpacity
+                onPress={() => downloadController.current?.abort()}
+                style={styles.dlCancelBtn}
+              >
+                <Text style={[styles.dlCancelText, isOwn && styles.dlCancelTextOwn]}>Cancel</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
         <Text style={[styles.timestamp, isOwn && styles.timestampOwn]}>{item.timestamp}</Text>
       </View>
     );
-  }, []);
+  }, [handleDownload, downloadingId, downloadProgress]);
 
   if (encLoading) {
     return <View style={styles.center}><ActivityIndicator size="large" color="#2563eb" /></View>;
@@ -244,7 +287,11 @@ const styles = StyleSheet.create({
   senderName: { fontSize: 11, fontWeight: '600', color: '#2563eb', marginBottom: 2 },
   messageText: { fontSize: 15, color: '#1a1a1a', lineHeight: 21 },
   messageTextOwn: { color: '#fff' },
-  fileInfo: { fontSize: 12, color: '#6b7280', marginTop: 4 },
+  fileRow: { marginTop: 4 },
+  fileInfo: { fontSize: 12, color: '#6b7280' },
+  fileInfoOwn: { color: 'rgba(255,255,255,0.8)' },
+  downloadHint: { fontSize: 11, color: '#2563eb', marginTop: 1 },
+  downloadHintOwn: { color: 'rgba(255,255,255,0.6)' },
   timestamp: { fontSize: 10, color: '#9ca3af', marginTop: 4, alignSelf: 'flex-end' },
   timestampOwn: { color: 'rgba(255,255,255,0.7)' },
   typingContainer: { paddingHorizontal: 16, paddingVertical: 4 },
@@ -269,5 +316,8 @@ const styles = StyleSheet.create({
   textInput: { flex: 1, minHeight: 40, maxHeight: 120, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#f3f4f6', borderRadius: 20, fontSize: 15, marginHorizontal: 8 },
   sendBtn: { padding: 8, backgroundColor: '#2563eb', borderRadius: 20, width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   sendBtnDisabled: { backgroundColor: '#9ca3af' },
+  dlCancelBtn: { marginTop: 4, alignSelf: 'flex-start' },
+  dlCancelText: { fontSize: 11, color: '#ef4444', fontWeight: '600' },
+  dlCancelTextOwn: { color: '#fecaca' },
   sendIcon: { fontSize: 18, color: '#fff' },
 });
