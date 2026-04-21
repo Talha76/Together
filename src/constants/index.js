@@ -61,6 +61,8 @@ export const UI_MESSAGES = {
     DECRYPTION_FAILED: 'Failed to decrypt message',
     UPLOAD_FAILED: 'Failed to upload file. Please try again.',
     DOWNLOAD_FAILED: 'Failed to download file',
+    DOWNLOAD_CANCELLED: 'Download cancelled',
+    UPLOAD_CANCELLED: 'Upload cancelled',
     CONNECTION_LOST: 'Connection lost. Reconnecting...',
     ROOM_FULL: 'This room is full. Maximum 2 participants allowed.',
     WEAK_CODE: 'Password is too weak. Use at least 12 characters.'

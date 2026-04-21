@@ -151,14 +151,14 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
     if (!sharedSecret || !chatRoomId || !userIdentifier) throw new Error('Encryption not set up');
 
     try {
-      if (abortSignal?.aborted) throw new Error('Upload cancelled');
+      if (abortSignal?.aborted) throw new Error(UI_MESSAGES.ERRORS.UPLOAD_CANCELLED);
 
       let fileMetadata = null;
 
       if (selectedFile) {
         // selectedFile = { uri, name, type, size }
         if (selectedFile.size > FILE_LIMITS.MAX_SIZE) throw new Error(UI_MESSAGES.ERRORS.FILE_TOO_LARGE);
-        if (abortSignal?.aborted) throw new Error('Upload cancelled');
+        if (abortSignal?.aborted) throw new Error(UI_MESSAGES.ERRORS.UPLOAD_CANCELLED);
 
         let fileUri = selectedFile.uri;
         let fileType = selectedFile.type;
@@ -179,7 +179,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
             fileSize = compressed.compressedSize;
             if (compressed.mimeType) fileType = compressed.mimeType;
           }
-          if (abortSignal?.aborted) throw new Error('Upload cancelled');
+          if (abortSignal?.aborted) throw new Error(UI_MESSAGES.ERRORS.UPLOAD_CANCELLED);
           if (onProgress) onProgress({ stage: 'compressing', progress: 100 });
         }
 
@@ -187,14 +187,14 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
         if (onProgress) onProgress({ stage: 'encrypting', progress: 0 });
         const fileData = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
         if (onProgress) onProgress({ stage: 'encrypting', progress: 20 });
-        if (abortSignal?.aborted) throw new Error('Upload cancelled');
+        if (abortSignal?.aborted) throw new Error(UI_MESSAGES.ERRORS.UPLOAD_CANCELLED);
 
         // Encrypt
         const encryptedFile = await encryptFileAsync(fileData, sharedSecret, (p) => {
           if (abortSignal?.aborted) return;
           if (onProgress) onProgress({ stage: 'encrypting', progress: 20 + Math.round((p / 100) * 80) });
         });
-        if (abortSignal?.aborted) throw new Error('Upload cancelled');
+        if (abortSignal?.aborted) throw new Error(UI_MESSAGES.ERRORS.UPLOAD_CANCELLED);
         if (onProgress) onProgress({ stage: 'encrypting', progress: 100 });
 
         const encryptedFileData = Buffer.from(JSON.stringify({
@@ -222,7 +222,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
         };
       }
 
-      if (abortSignal?.aborted) throw new Error('Upload cancelled');
+      if (abortSignal?.aborted) throw new Error(UI_MESSAGES.ERRORS.UPLOAD_CANCELLED);
 
       const messageText = inputText + (selectedFile ? ' 📎 File' : '');
       const encryptedText = encryptMessage(messageText);
@@ -241,7 +241,7 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
 
       return { success: true };
     } catch (error) {
-      if (error.message === 'Upload cancelled' || error.name === 'AbortError') {
+      if (error.message === UI_MESSAGES.ERRORS.UPLOAD_CANCELLED || error.name === 'AbortError') {
         return { success: false, cancelled: true };
       }
       return { success: false, error: error.message };
@@ -252,13 +252,13 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
   const downloadFile = useCallback(async (fileMetadata, onProgress, abortSignal) => {
     if (!canAccessRoom) throw new Error('No room access');
     if (!fileMetadata?.megaLink) throw new Error('No file link');
-    if (abortSignal?.aborted) throw new Error('Download cancelled');
+    if (abortSignal?.aborted) throw new Error(UI_MESSAGES.ERRORS.DOWNLOAD_CANCELLED);
 
     const downloadResult = await megaStorage.downloadFile(fileMetadata.megaLink, (p) => {
       if (onProgress) onProgress(p * 0.5);
     }, abortSignal);
 
-    if (downloadResult.cancelled) throw new Error('Download cancelled');
+    if (downloadResult.cancelled) throw new Error(UI_MESSAGES.ERRORS.DOWNLOAD_CANCELLED);
     if (!downloadResult.success) throw new Error('Download failed: ' + downloadResult.error);
 
     const encryptedFileJSON = Buffer.from(downloadResult.data, 'base64').toString('utf-8');
@@ -268,13 +268,13 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
       throw new Error('Invalid file payload');
     }
 
-    if (abortSignal?.aborted) throw new Error('Download cancelled');
+    if (abortSignal?.aborted) throw new Error(UI_MESSAGES.ERRORS.DOWNLOAD_CANCELLED);
 
     const decryptedData = await decryptFileAsync(encryptedFileData.chunks, sharedSecret, (p) => {
       if (onProgress) onProgress(50 + (p * 0.5));
     });
 
-    if (abortSignal?.aborted) throw new Error('Download cancelled');
+    if (abortSignal?.aborted) throw new Error(UI_MESSAGES.ERRORS.DOWNLOAD_CANCELLED);
 
     const downloadsDir = FileSystem.documentDirectory + 'downloads/';
     const dirInfo = await FileSystem.getInfoAsync(downloadsDir);

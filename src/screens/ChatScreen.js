@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useEncryption } from '../hooks/useEncryption';
 import { useMessages } from '../hooks/useMessages';
-import { STORAGE_KEYS } from '../constants';
+import { STORAGE_KEYS, UI_MESSAGES } from '../constants';
 import { getRelativeTime, getDateLabel, formatFileSize } from '../utils';
 
 export default function ChatScreen({ navigation }) {
@@ -99,7 +99,7 @@ export default function ChatScreen({ navigation }) {
     try {
       await downloadFile(message.file, (p) => setDownloadProgress(Math.round(p)), controller.signal);
     } catch (e) {
-      if (e.message !== 'Download cancelled') {
+      if (e.message !== UI_MESSAGES.ERRORS.DOWNLOAD_CANCELLED) {
         Alert.alert('Download failed', e.message);
       }
     } finally {
