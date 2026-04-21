@@ -25,16 +25,21 @@ export default function SetupScreen({ navigation }) {
     setLoading(true);
     setError('');
 
-    const result = await setupWithCode(sharedCode);
-    if (!result.success) {
-      setError(result.error);
-      setLoading(false);
-      return;
-    }
+    try {
+      const result = await setupWithCode(sharedCode);
+      if (!result.success) {
+        setError(result.error);
+        setLoading(false);
+        return;
+      }
 
-    await saveEncryptionKeys(userName.trim(), phoneNumber.trim());
-    setLoading(false);
-    navigation.replace('Chat');
+      await saveEncryptionKeys(userName.trim(), phoneNumber.trim(), result.keys, result.secret);
+      setLoading(false);
+      navigation.replace('Chat');
+    } catch (e) {
+      setError('Setup failed: ' + e.message);
+      setLoading(false);
+    }
   };
 
   return (

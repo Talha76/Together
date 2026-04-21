@@ -52,14 +52,17 @@ export function useEncryption() {
     }
   };
 
-  const saveEncryptionKeys = async (userName, phoneNumber) => {
+  const saveEncryptionKeys = async (userName, phoneNumber, keys, secret) => {
+    // Accept keys/secret directly — state setters are async and would be stale if read here
+    const keysToSave = keys ?? myKeys;
+    const secretToSave = secret ?? sharedSecret;
     await Promise.all([
       AsyncStorage.setItem(STORAGE_KEYS.USER_NAME, userName),
       AsyncStorage.setItem(STORAGE_KEYS.PHONE_NUMBER, phoneNumber),
-      AsyncStorage.setItem(STORAGE_KEYS.MY_KEYS, JSON.stringify(myKeys)),
-      AsyncStorage.setItem(STORAGE_KEYS.THEIR_PUBLIC_KEY, theirPublicKey),
-      AsyncStorage.setItem(STORAGE_KEYS.SHARED_SECRET, sharedSecret),
-      AsyncStorage.setItem(STORAGE_KEYS.KEY_EXCHANGE_METHOD, keyExchangeMethod),
+      AsyncStorage.setItem(STORAGE_KEYS.MY_KEYS, JSON.stringify(keysToSave)),
+      AsyncStorage.setItem(STORAGE_KEYS.THEIR_PUBLIC_KEY, keysToSave?.publicKey ?? theirPublicKey),
+      AsyncStorage.setItem(STORAGE_KEYS.SHARED_SECRET, secretToSave),
+      AsyncStorage.setItem(STORAGE_KEYS.KEY_EXCHANGE_METHOD, keyExchangeMethod ?? 'code'),
     ]);
   };
 
