@@ -274,6 +274,8 @@ export function useMessages(sharedSecret, encryptMessage, decryptMessage, userId
       if (onProgress) onProgress(50 + (p * 0.5));
     });
 
+    if (abortSignal?.aborted) throw new Error('Download cancelled');
+
     const downloadsDir = FileSystem.documentDirectory + 'downloads/';
     const dirInfo = await FileSystem.getInfoAsync(downloadsDir);
     if (!dirInfo.exists) {
