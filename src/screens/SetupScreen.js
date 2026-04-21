@@ -7,6 +7,7 @@ import { ENCRYPTION_CONFIG } from '../constants';
 
 export default function SetupScreen({ navigation }) {
   const [userName, setUserName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [sharedCode, setSharedCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,6 +16,7 @@ export default function SetupScreen({ navigation }) {
 
   const handleConnect = async () => {
     if (!userName.trim()) { setError('Enter your name'); return; }
+    if (!phoneNumber.trim()) { setError('Enter your phone number'); return; }
     if (sharedCode.length < ENCRYPTION_CONFIG.MIN_CODE_LENGTH) {
       setError(`Code must be at least ${ENCRYPTION_CONFIG.MIN_CODE_LENGTH} characters`);
       return;
@@ -30,7 +32,7 @@ export default function SetupScreen({ navigation }) {
       return;
     }
 
-    await saveEncryptionKeys(userName.trim());
+    await saveEncryptionKeys(userName.trim(), phoneNumber.trim());
     setLoading(false);
     navigation.replace('Chat');
   };
@@ -58,6 +60,16 @@ export default function SetupScreen({ navigation }) {
           />
 
           <TextInput
+            label="Phone Number"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            mode="outlined"
+            style={styles.input}
+            keyboardType="phone-pad"
+            autoCapitalize="none"
+          />
+
+          <TextInput
             label="Shared Secret Code"
             value={sharedCode}
             onChangeText={setSharedCode}
@@ -79,7 +91,7 @@ export default function SetupScreen({ navigation }) {
             mode="contained"
             onPress={handleConnect}
             loading={loading}
-            disabled={loading || !userName.trim() || !sharedCode}
+            disabled={loading || !userName.trim() || !phoneNumber.trim() || !sharedCode}
             style={styles.button}
             labelStyle={styles.buttonLabel}
           >

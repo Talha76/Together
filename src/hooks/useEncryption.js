@@ -52,9 +52,10 @@ export function useEncryption() {
     }
   };
 
-  const saveEncryptionKeys = async (userName) => {
+  const saveEncryptionKeys = async (userName, phoneNumber) => {
     await Promise.all([
       AsyncStorage.setItem(STORAGE_KEYS.USER_NAME, userName),
+      AsyncStorage.setItem(STORAGE_KEYS.PHONE_NUMBER, phoneNumber),
       AsyncStorage.setItem(STORAGE_KEYS.MY_KEYS, JSON.stringify(myKeys)),
       AsyncStorage.setItem(STORAGE_KEYS.THEIR_PUBLIC_KEY, theirPublicKey),
       AsyncStorage.setItem(STORAGE_KEYS.SHARED_SECRET, sharedSecret),
@@ -65,6 +66,7 @@ export function useEncryption() {
   const clearEncryptionData = async () => {
     await Promise.all([
       AsyncStorage.removeItem(STORAGE_KEYS.USER_NAME),
+      AsyncStorage.removeItem(STORAGE_KEYS.PHONE_NUMBER),
       AsyncStorage.removeItem(STORAGE_KEYS.MY_KEYS),
       AsyncStorage.removeItem(STORAGE_KEYS.THEIR_PUBLIC_KEY),
       AsyncStorage.removeItem(STORAGE_KEYS.SHARED_SECRET),
